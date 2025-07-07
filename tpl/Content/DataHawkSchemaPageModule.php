@@ -8,7 +8,7 @@
 			document.addEventListener('DOMContentLoaded', () => {
 				(async () => {
 					await AssetLoader.loadScriptAsync('plugin/DataHawk/assets/dbdesigner/dbdesigner.js');
-					console.log('JqueryDataTable loaded');
+					console.log('DbDesigner loaded');
 
 					var data = <?php echo json_encode($this->_['data']); ?>;
 					$('#datahawkschema').dbdesigner().initializeFromData(data);
