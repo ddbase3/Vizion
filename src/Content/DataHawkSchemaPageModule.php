@@ -4,7 +4,6 @@ namespace Vizion\Content;
 
 use Base3\Api\IMvcView;
 use Base3\Api\ISchemaProvider;
-use Base3\Core\ServiceLocator;
 use ModuledPage\Page\AbstractModuleContent;
 use DataHawk\Api\IReportSchemaProvider;
 
@@ -39,7 +38,7 @@ class DataHawkSchemaPageModule extends AbstractModuleContent implements ISchemaP
 				if ($field->primaryKey) $primaryKeys[] = $field->name;
 				$fields[] = [
 					'name' => $field->name,
-					'type' => $field->type
+					'type' => ($field->nullable ? '?' : '') . $field->type
 				];
 			}
 			$data['data'][] = [
