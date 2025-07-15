@@ -10,13 +10,13 @@ Vizion provides a growing collection of modular UI components for data visualiza
 
 ## Features
 
-📊 JSON-based report configuration with field-specific control options
-⚙️ Declarative display type switching (e.g., `DataTableReportDisplay`, `BarChartReportDisplay`, ...)
-🧩 Config loading via `IReportConfigProvider` (e.g., from file, DB or inline)
-🔄 Dynamic Ajax support through `getOutput('json')`
-📐 Clean MVC rendering via `IMvcView` integration
-🔎 Sorting, paging, filtering, column visibility and layout control for tables
-🧠 Query backend powered by [DataHawk](https://github.com/ddbase3/DataHawk)
+* 📊 JSON-based report configuration with field-specific control options
+* ⚙️ Declarative display type switching (e.g., `DataTableReportDisplay`, `BarChartReportDisplay`, ...)
+* 🧩 Config loading via `IReportConfigProvider` (e.g., from file, DB or inline)
+* 🔄 Dynamic Ajax support through `getOutput('json')`
+* 📐 Clean MVC rendering via `IMvcView` integration
+* 🔎 Sorting, paging, filtering, column visibility and layout control for tables
+* 🧠 Query backend powered by [DataHawk](https://github.com/ddbase3/DataHawk)
 
 ## Example: Minimal Config
 
@@ -87,9 +87,9 @@ echo $display->getOutput('html');
 
 ## Roadmap
 
-✔️ Working: jQueryDataTable (static and Ajax)
-🔜 Coming: Chart.js (Bar, Pie, Line), Custom Formatters, Export, Grouping, Subtotals
-🎯 Vision: A visual query + dashboard builder with embeddable components
+* ✔️ Working: jQueryDataTable (static and Ajax)
+* 🔜 Coming: Chart.js (Bar, Pie, Line), Custom Formatters, Export, Grouping, Subtotals
+* 🎯 Vision: A visual query + dashboard builder with embeddable components
 
 ## License
 
