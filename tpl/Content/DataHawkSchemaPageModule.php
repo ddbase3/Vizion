@@ -7,7 +7,7 @@
 		<script>
 			document.addEventListener('DOMContentLoaded', () => {
 				(async () => {
-					await AssetLoader.loadScriptAsync('plugin/DataHawk/assets/dbdesigner/dbdesigner.js');
+					await AssetLoader.loadScriptAsync('plugin/ClientStack/assets/dbdesigner/dbdesigner.min.js');
 					console.log('DbDesigner loaded');
 
 					var data = <?php echo json_encode($this->_['data']); ?>;
