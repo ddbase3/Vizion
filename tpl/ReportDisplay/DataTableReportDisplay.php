@@ -16,11 +16,11 @@
 			sortColumn: columns[0]?.key ?? null,
 			sortDirection: 'asc',
 			layoutTargets: {
-				'.footer-right': ['pager'],
+				'.header-left': ['columnSelector'],
+				'.header-right': ['resetButton'],
 				'.footer-left': ['pageSizeSelector'],
 				'.footer-center': ['info'],
-				'.header-right': ['resetButton'],
-				'.header-left': ['columnSelector']
+				'.footer-right': ['compactPager']
 			}
 		});
 	});

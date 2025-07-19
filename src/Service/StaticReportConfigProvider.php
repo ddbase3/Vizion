@@ -28,10 +28,59 @@ class StaticReportConfigProvider implements IReportConfigProvider {
 					"config" => [
 						"label" => "Repository",
 						"sortable" => true,
-						"filter" => [
-							"type" => "text",
-							"placeholder" => "Filter Repository"
-						]
+						"filter" => [ "type" => "text", "placeholder" => "Filter Repository" ]
+					]
+				],
+				[
+					"alias" => "language",
+					"element" => [
+						"type" => "fld",
+						"table" => "git_repository",
+						"field" => "language"
+					],
+					"config" => [
+						"label" => "Language",
+						"sortable" => true,
+						"filter" => [ "type" => "text", "placeholder" => "Filter Language" ]
+					]
+				],
+				[
+					"alias" => "license",
+					"element" => [
+						"type" => "fld",
+						"table" => "git_license",
+						"field" => "name"
+					],
+					"config" => [
+						"label" => "License",
+						"sortable" => true,
+						"filter" => [ "type" => "text", "placeholder" => "Filter License" ]
+					]
+				],
+				[
+					"alias" => "owner",
+					"element" => [
+						"type" => "fld",
+						"table" => "git_owner",
+						"field" => "login"
+					],
+					"config" => [
+						"label" => "Owner",
+						"sortable" => true,
+						"filter" => [ "type" => "text", "placeholder" => "Filter Owner" ]
+					]
+				],
+				[
+					"alias" => "default_branch",
+					"element" => [
+						"type" => "fld",
+						"table" => "git_branch",
+						"field" => "name"
+					],
+					"config" => [
+						"label" => "Branch",
+						"sortable" => true,
+						"filter" => [ "type" => "text", "placeholder" => "Filter Branch" ]
 					]
 				],
 				[
@@ -44,9 +93,7 @@ class StaticReportConfigProvider implements IReportConfigProvider {
 					"config" => [
 						"label" => "Size",
 						"sortable" => true,
-						"filter" => [
-							"type" => "numberrange"
-						]
+						"filter" => [ "type" => "numberrange" ]
 					]
 				]
 			],
