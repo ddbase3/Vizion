@@ -20,7 +20,7 @@
 		</script>
 
 		<style>
-			#datahawkschema { position:relative; height:600px; border-radius:5px; box-shadow:0 0 10px #ddd; overflow:hidden; }
+			#datahawkschema { position:relative; height:600px; border-radius:5px; <?php /* box-shadow:0 0 10px #ddd; */ ?>overflow:hidden; }
 			#datahawkschema * { line-height:1em; }
 		</style>
 
