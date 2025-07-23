@@ -13,10 +13,10 @@
 			sortDirection: 'asc',
 			layoutTargets: {
 				'.header-left': ['columnSelector'],
-				'.header-right': ['resetButton'],
-				'.footer-left': ['pageSizeSelector'],
+				'.header-right': ['compactPager'],
+				'.footer-left': ['resetButton'],
 				'.footer-center': ['info'],
-				'.footer-right': ['compactPager']
+				'.footer-right': ['pageSizeSelector']
 			}
 		});
 	}
