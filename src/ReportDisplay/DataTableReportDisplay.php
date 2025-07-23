@@ -182,7 +182,7 @@ class DataTableReportDisplay implements IDisplay {
 			'visible' => $f['config']['visible'] ?? true
 		], $fields);
 
-		$report = $this->config['id'] ?? 'example';
+		$report = $this->config['report'] ?? '';
 		$ajaxUrl = 'generalreportdisplay.json?report=' . urlencode($report);
 		$pageSize = $this->config['config']['pageSize'] ?? 10;
 

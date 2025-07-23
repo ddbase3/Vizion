@@ -37,7 +37,8 @@ class GeneralReportDisplay implements IReportDisplay {
 		}
 
 		$this->config = $this->configProvider->getConfig($this->report);
-		$displayName = $this->config['display'] ?? 'datatablereportdisplay';
+		$this->config['report'] = $this->report;
+		$displayName = $this->config['display'] ?? '';
 
 		/** @var IDisplay $display */
 		$display = $this->classmap->getInstanceByInterfaceName(IDisplay::class, $displayName);
