@@ -1,13 +1,22 @@
 		<div id="datahawkschema"></div>
 
 		<script>
-			document.addEventListener('DOMContentLoaded', async () => {
+			async function initDbDesigner(data) {
 				await AssetLoader.loadScriptAsync('<?php echo $this->_['resolve']('plugin/ClientStack/assets/dbdesigner/dbdesigner.min.js'); ?>');
 				console.log('DbDesigner loaded');
 
-				var data = <?php echo json_encode($this->_['data']); ?>;
 				$('#datahawkschema').dbdesigner().initializeFromData(data);
-			});
+			}
+
+			var data = <?php echo json_encode($this->_['data']); ?>;
+
+			if (document.readyState === 'loading') {
+				document.addEventListener('DOMContentLoaded', () => {
+					initDbDesigner(data);
+				});
+			} else {
+				initDbDesigner(data);
+			}
 		</script>
 
 		<style>
