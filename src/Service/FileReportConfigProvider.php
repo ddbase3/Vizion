@@ -21,9 +21,7 @@ class FileReportConfigProvider implements IReportConfigProvider {
 			return json_decode($json, true);
 		}
 
-		if ($report !== "example") {
-			throw new \Exception("Report not found: $report");
-		}
+		throw new \Exception("Report not found: $report");
 	}
 }
 
