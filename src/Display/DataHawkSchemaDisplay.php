@@ -1,36 +1,45 @@
 <?php declare(strict_types=1);
 
-namespace Vizion\Content;
+namespace Vizion\Display;
 
+use Base3\Api\IAssetResolver;
 use Base3\Api\IMvcView;
-use Base3\Api\ISchemaProvider;
+use Base3\Api\IDisplay;
 use ModuledPage\Page\AbstractModuleContent;
 use DataHawk\Api\IReportSchemaProvider;
 
-class DataHawkSchemaPageModule extends AbstractModuleContent implements ISchemaProvider {
+class DataHawkSchemaDisplay implements IDisplay {
+
+	private $displayData;
 
 	public function __construct(
 		private readonly IMvcView $view,
-		private readonly IReportSchemaProvider $reportschemaprovider
+		private readonly IReportSchemaProvider $reportschemaprovider,
+		private readonly IAssetResolver $assetResolver
 	) {}
 
 	// Implementation of IBase
 
 	public static function getName(): string {
-		return 'datahawkschemapagemodule';
+		return 'datahawkschemadisplay';
 	}
 
-	// Implementation of IPageModule
+	// Implementation of IDisplay
 
-	public function getHtml() {
+	public function setData($data) {
+		$this->displayData = $data;
+	}
+
+	// Implementation of IOutput
+
+	public function getOutput($out = 'html') {
 
 		$data = ['data' => [], 'foreignKeys' => []];
 		$schema = $this->reportschemaprovider->getSchema();
 
 		foreach ($schema as $table) {
 
-			// only git tables
-			if (substr($table->name, 0, 3) != 'git') continue;
+			if ($this->displayData != null && isset($this->displayData['domain']) && $table->domain != $this->displayData['domain']) continue;
 
 			$fields = [];
 			$primaryKeys = [];
@@ -70,22 +79,13 @@ class DataHawkSchemaPageModule extends AbstractModuleContent implements ISchemaP
 		}
 
 		$this->view->setPath(DIR_PLUGIN . 'Vizion');
-		$this->view->setTemplate('Content/DataHawkSchemaPageModule.php');
+		$this->view->setTemplate('Display/DataHawkSchemaDisplay.php');
 		$this->view->assign('data', $data);
-		$defaults = [];
-		foreach (array_merge($defaults, $this->data) as $tag => $content) $this->view->assign($tag, $content);
+		$this->view->assign('resolve', fn($src) => $this->assetResolver->resolve($src));
 		return $this->view->loadTemplate();
 	}
 
-	// Implementation of ISchemaProvider
-
-	public function getSchema(): array {
-		$schema = [
-			'$schema' => 'https://json-schema.org/draft-2020-12/schema',
-			'type' => 'object',
-			'properties' => [],
-			'required' => [],
-		];
-		return $schema;
+	public function getHelp() {
+		return 'Help of DataHawkSchemaDisplay';
 	}
 }

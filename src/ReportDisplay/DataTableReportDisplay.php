@@ -36,140 +36,140 @@ class DataTableReportDisplay implements IDisplay {
 			: $this->getHtmlOutput();
 	}
 
-private function getJsonOutput(): string {
-    // Parameter auslesen
-    $sort = $_GET['sort'] ?? null;
-    $direction = strtolower($_GET['direction'] ?? 'asc') === 'desc' ? 'DESC' : 'ASC';
-    $pageSize = max(1, intval($_GET['pageSize'] ?? ($this->config['config']['pageSize'] ?? 10)));
-    $page = max(1, intval($_GET['page'] ?? 1));
-    $filters = $_GET['filter'] ?? [];
+	private function getJsonOutput(): string {
+		// Read params
+		$sort = $_GET['sort'] ?? null;
+		$direction = strtolower($_GET['direction'] ?? 'asc') === 'desc' ? 'DESC' : 'ASC';
+		$pageSize = max(1, intval($_GET['pageSize'] ?? ($this->config['config']['pageSize'] ?? 10)));
+		$page = max(1, intval($_GET['page'] ?? 1));
+		$filters = $_GET['filter'] ?? [];
 
-    // Felder-Definitionen
-    $fields = $this->config['fields'] ?? [];
-    $fieldDefs = [];
-    foreach ($fields as $f) {
-        $fieldDefs[$f['alias']] = $f['element'];
-    }
+		// Field defintions
+		$fields = $this->config['fields'] ?? [];
+		$fieldDefs = [];
+		foreach ($fields as $f) {
+			$fieldDefs[$f['alias']] = $f['element'];
+		}
 
-    // Query-Grundlage (mit type=select)
-    $baseQuery = $this->config;
-    $baseQuery['type'] = 'select';
+		// Base query (with type=select)
+		$baseQuery = $this->config;
+		$baseQuery['type'] = 'select';
 
-    // WHERE-Bedingungen (Basis + Filter)
-    $where = $this->config['where'] ?? null;
-    $whereParams = $where ? [$where] : [];
+		// WHERE condition (base + filter)
+		$where = $this->config['where'] ?? null;
+		$whereParams = $where ? [$where] : [];
 
-    foreach ($filters as $alias => $value) {
-        if (!isset($fieldDefs[$alias]) || $value === '') continue;
-        $whereParams[] = [
-            'type' => 'op',
-            'operator' => 'LIKE',
-            'params' => [$fieldDefs[$alias], '%' . $value . '%']
-        ];
-    }
+		foreach ($filters as $alias => $value) {
+			if (!isset($fieldDefs[$alias]) || $value === '') continue;
+			$whereParams[] = [
+				'type' => 'op',
+				'operator' => 'LIKE',
+				'params' => [$fieldDefs[$alias], '%' . $value . '%']
+			];
+		}
 
-    if (count($whereParams) === 1) {
-        $baseQuery['where'] = $whereParams[0];
-    } elseif (count($whereParams) > 1) {
-        $baseQuery['where'] = [
-            'type' => 'op',
-            'operator' => 'AND',
-            'params' => $whereParams
-        ];
-    }
+		if (count($whereParams) === 1) {
+			$baseQuery['where'] = $whereParams[0];
+		} elseif (count($whereParams) > 1) {
+			$baseQuery['where'] = [
+				'type' => 'op',
+				'operator' => 'AND',
+				'params' => $whereParams
+			];
+		}
 
-    // ==========================
-    // COUNT QUERY
-    // ==========================
-    $countQuery = $baseQuery;
+		// ==========================
+		// COUNT QUERY
+		// ==========================
+		$countQuery = $baseQuery;
 
-    // Felder: alle echten Felder (für JOIN-Erzeugung)
-    $countQuery['fields'] = [];
-    foreach ($fields as $f) {
-        $countQuery['fields'][] = [
-            'element' => $f['element'],
-            'alias' => $f['alias']
-        ];
-    }
+		// Fields: all real fields (for JOIN creation)
+		$countQuery['fields'] = [];
+		foreach ($fields as $f) {
+			$countQuery['fields'][] = [
+				'element' => $f['element'],
+				'alias' => $f['alias']
+			];
+		}
 
-    // Dann zusätzlich COUNT-Feld
-    $countQuery['fields'][] = [
-        'element' => [
-            'type' => 'fn',
-            'function' => 'COUNT',
-            'params' => [[
-                'type' => 'fld',
-                'table' => $fields[0]['element']['table'] ?? '',
-                'field' => $fields[0]['element']['field'] ?? 'id'
-            ]]
-        ],
-        'alias' => '__total__'
-    ];
+		// Additional count field
+		$countQuery['fields'][] = [
+			'element' => [
+				'type' => 'fn',
+				'function' => 'COUNT',
+				'params' => [[
+					'type' => 'fld',
+					'table' => $fields[0]['element']['table'] ?? '',
+					'field' => $fields[0]['element']['field'] ?? 'id'
+				]]
+			],
+			'alias' => '__total__'
+		];
 
-    // GROUP BY und HAVING übernehmen, falls vorhanden
-    if (isset($this->config['group'])) {
-        $countQuery['group'] = $this->config['group'];
-    }
-    if (isset($this->config['having'])) {
-        $countQuery['having'] = $this->config['having'];
-    }
+		// GROUP BY und HAVING übernehmen, falls vorhanden
+		if (isset($this->config['group'])) {
+			$countQuery['group'] = $this->config['group'];
+		}
+		if (isset($this->config['having'])) {
+			$countQuery['having'] = $this->config['having'];
+		}
 
-    // Kein Limit/Offset/Sortierung beim Zählen
-    unset($countQuery['limit'], $countQuery['offset'], $countQuery['order_by']);
+		// No limit/offset/sorting for counting
+		unset($countQuery['limit'], $countQuery['offset'], $countQuery['order_by']);
 
-    // Ausführen
-    $totalResult = $this->reportqueryservice->executeQuery($countQuery);
-    $total = $totalResult->rows[0]['__total__'] ?? 0;
+		// Execute 
+		$totalResult = $this->reportqueryservice->executeQuery($countQuery);
+		$total = $totalResult->rows[0]['__total__'] ?? 0;
 
-    // ==========================
-    // DATENQUERY
-    // ==========================
-    $dataQuery = $baseQuery;
+		// ==========================
+		// DATENQUERY
+		// ==========================
+		$dataQuery = $baseQuery;
 
-    // Felder setzen
-    $dataQuery['fields'] = [];
-    foreach ($fields as $f) {
-        $dataQuery['fields'][] = [
-            'element' => $f['element'],
-            'alias' => $f['alias']
-        ];
-    }
+		// Set fields
+		$dataQuery['fields'] = [];
+		foreach ($fields as $f) {
+			$dataQuery['fields'][] = [
+				'element' => $f['element'],
+				'alias' => $f['alias']
+			];
+		}
 
-    // Sortierung
-    if ($sort && isset($fieldDefs[$sort])) {
-        $dataQuery['order_by'] = [[
-            'element' => $fieldDefs[$sort],
-            'direction' => $direction
-        ]];
-    }
+		// Sorting
+		if ($sort && isset($fieldDefs[$sort])) {
+			$dataQuery['order_by'] = [[
+				'element' => $fieldDefs[$sort],
+				'direction' => $direction
+			]];
+		}
 
-    // Pagination
-    $totalPages = max(1, ceil($total / $pageSize));
-    $offset = ($page - 1) * $pageSize;
-    $dataQuery['offset'] = $offset;
-    $dataQuery['limit'] = $pageSize;
+		// Pagination
+		$totalPages = max(1, ceil($total / $pageSize));
+		$offset = ($page - 1) * $pageSize;
+		$dataQuery['offset'] = $offset;
+		$dataQuery['limit'] = $pageSize;
 
-    // GROUP BY und HAVING auch hier
-    if (isset($this->config['group'])) {
-        $dataQuery['group'] = $this->config['group'];
-    }
-    if (isset($this->config['having'])) {
-        $dataQuery['having'] = $this->config['having'];
-    }
+		// GROUP BY and HAVING also here
+		if (isset($this->config['group'])) {
+			$dataQuery['group'] = $this->config['group'];
+		}
+		if (isset($this->config['having'])) {
+			$dataQuery['having'] = $this->config['having'];
+		}
 
-    // Ausführen
-    $result = $this->reportqueryservice->executeQuery($dataQuery);
-    $rows = $result->rows ?? [];
+		// Execute
+		$result = $this->reportqueryservice->executeQuery($dataQuery);
+		$rows = $result->rows ?? [];
 
-    // Rückgabe
-    return json_encode([
-        'total' => $total,
-        'page' => $page,
-        'pageSize' => $pageSize,
-        'totalPages' => $totalPages,
-        'data' => $rows
-    ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
-}
+		// Return
+		return json_encode([
+			'total' => $total,
+			'page' => $page,
+			'pageSize' => $pageSize,
+			'totalPages' => $totalPages,
+			'data' => $rows
+		], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+	}
 
 	private function getHtmlOutput(): string {
 		$this->view->setPath(DIR_PLUGIN . 'Vizion');

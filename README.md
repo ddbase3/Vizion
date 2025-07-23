@@ -1,6 +1,6 @@
 # Vizion
 
-**Vizion** is a plugin for the [BASE3 Framework](https://github.com/ddbase3/Base3Framework) that brings data to life through powerful, visual PageModules. Whether it's dynamic tables or expressive charts, Vizion aims to simplify how data is displayed and understood across your applications.
+**Vizion** is a plugin for the [BASE3 Framework](https://github.com/ddbase3/Base3Framework) that brings data to life through powerful, visual displays. Whether it's dynamic tables or expressive charts, Vizion aims to simplify how data is displayed and understood across your applications.
 
 > Think of Vizion as the visual language of your data.
 
