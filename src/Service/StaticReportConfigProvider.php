@@ -15,7 +15,9 @@ class StaticReportConfigProvider implements IReportConfigProvider {
 			"display" => "datatablereportdisplay",
 			"config" => [
 				"paging" => true,
-				"columnSelector" => true
+				"columnSelector" => true,
+				"sortColumn" => "repository_name",
+				"sortDirection" =>  "asc"
 			],
 			"fields" => [
 				[
@@ -98,7 +100,14 @@ class StaticReportConfigProvider implements IReportConfigProvider {
 				]
 			],
 			"from" => "git_repository",
-			"where" => null
+			"where" => [
+				"type" => "op",
+				"operator" => "=",
+				"params" => [
+					[ "type" => "fld", "table" => "git_branch", "field" => "is_default" ],
+					true
+				]
+			]
 		];
 	}
 }

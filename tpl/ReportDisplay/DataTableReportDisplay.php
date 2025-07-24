@@ -1,16 +1,16 @@
 <div id="reportDatatable"></div>
 
 <script>
-	async function initReportDatatable(ajaxUrl, columns, pageSize) {
+	async function initReportDatatable(columns, config) {
 		await AssetLoader.loadCssAsync('<?php echo $this->_['resolve']('plugin/ClientStack/assets/jquerydatatable/jquery.datatable.min.css'); ?>');
 		await AssetLoader.loadScriptAsync('<?php echo $this->_['resolve']('plugin/ClientStack/assets/jquerydatatable/jquery.datatable.min.js'); ?>');
 
 		$('#reportDatatable').jqueryDataTable({
-			dataSource: ajaxUrl,
+			dataSource: "<?php echo $this->_['ajaxUrl']; ?>",
 			columns: columns,
-			pageSize: pageSize,
-			sortColumn: columns[0]?.key ?? null,
-			sortDirection: 'asc',
+			pageSize: config.config.pageSize ?? 10,
+			sortColumn: config.config.sortColumn ?? columns[0]?.key ?? null,
+			sortDirection: config.config.sortDirection ?? 'asc',
 			layoutTargets: {
 				'.header-left': ['columnSelector'],
 				'.header-right': ['resetButton'],
@@ -21,16 +21,15 @@
 		});
 	}
 
-	var ajaxUrl = "<?php echo $this->_['ajaxUrl']; ?>";
 	var columns = <?php echo json_encode($this->_['columns'], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE); ?>;
-	var pageSize = <?php echo (int) $this->_['pageSize']; ?>;
+	var config = <?php echo json_encode($this->_['config'], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE); ?>;
 
 	if (document.readyState === 'loading') {
 		document.addEventListener('DOMContentLoaded', () => {
-			initReportDatatable(ajaxUrl, columns, pageSize);
+			initReportDatatable(columns, config);
 		});
 	} else {
-		initReportDatatable(ajaxUrl, columns, pageSize);
+		initReportDatatable(columns, config);
 	}
 </script>
 

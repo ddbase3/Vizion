@@ -5,6 +5,7 @@ namespace Vizion\ReportDisplay;
 use Base3\Api\IAssetResolver;
 use Base3\Api\IDisplay;
 use Base3\Api\IMvcView;
+use Base3\Logger\Api\ILogger;
 use DataHawk\Api\IReportQueryService;
 use DataHawk\Dto\QueryResult;
 
@@ -13,10 +14,13 @@ class DataTableReportDisplay implements IDisplay {
 	private ?array $config = null;
 	private ?QueryResult $result = null;
 
+	private $logSql = false;
+
 	public function __construct(
 		private readonly IMvcView $view,
 		private readonly IReportQueryService $reportqueryservice,
-		private readonly IAssetResolver $assetResolver
+		private readonly IAssetResolver $assetResolver,
+		private readonly ILogger $logger
 	) {}
 
 	public static function getName(): string {
@@ -161,6 +165,9 @@ class DataTableReportDisplay implements IDisplay {
 		$result = $this->reportqueryservice->executeQuery($dataQuery);
 		$rows = $result->rows ?? [];
 
+		// Logging
+		if ($this->logSql) $this->logger->log('Vizion', $result->debugSql);
+
 		// Return
 		return json_encode([
 			'total' => $total,
@@ -183,12 +190,11 @@ class DataTableReportDisplay implements IDisplay {
 		], $fields);
 
 		$report = $this->config['report'] ?? '';
-		$ajaxUrl = 'generalreportdisplay.json?report=' . urlencode($report);
-		$pageSize = $this->config['config']['pageSize'] ?? 10;
+		$ajaxUrl = '?name=generalreportdisplay&out=json&report=' . urlencode($report);
 
 		$this->view->assign('ajaxUrl', $ajaxUrl);
 		$this->view->assign('columns', $columns);
-		$this->view->assign('pageSize', $pageSize);
+		$this->view->assign('config', $this->config);
 
 		$this->view->assign('resolve', fn($src) => $this->assetResolver->resolve($src));
 
