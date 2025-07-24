@@ -14,7 +14,7 @@ class DataTableReportDisplay implements IDisplay {
 	private ?array $config = null;
 	private ?QueryResult $result = null;
 
-	private $logSql = false;
+	private $logSql = true;
 
 	public function __construct(
 		private readonly IMvcView $view,
@@ -97,6 +97,7 @@ class DataTableReportDisplay implements IDisplay {
 		}
 
 		// Additional count field
+		/*
 		$countQuery['fields'][] = [
 			'element' => [
 				'type' => 'fn',
@@ -106,6 +107,16 @@ class DataTableReportDisplay implements IDisplay {
 					'table' => $fields[0]['element']['table'] ?? '',
 					'field' => $fields[0]['element']['field'] ?? 'id'
 				]]
+			],
+			'alias' => '__total__'
+		];
+		*/
+		$countQuery['fields'][] = [
+			'element' => [
+				'type' => 'windowfn',
+				'function' => 'COUNT',
+				'params' => ['*'],
+				'over' => []
 			],
 			'alias' => '__total__'
 		];
@@ -124,6 +135,9 @@ class DataTableReportDisplay implements IDisplay {
 		// Execute 
 		$totalResult = $this->reportqueryservice->executeQuery($countQuery);
 		$total = $totalResult->rows[0]['__total__'] ?? 0;
+
+		// Logging
+		if ($this->logSql) $this->logger->log('Vizion', 'CNT | ' . $totalResult->debugSql);
 
 		// ==========================
 		// DATENQUERY
@@ -166,7 +180,7 @@ class DataTableReportDisplay implements IDisplay {
 		$rows = $result->rows ?? [];
 
 		// Logging
-		if ($this->logSql) $this->logger->log('Vizion', $result->debugSql);
+		if ($this->logSql) $this->logger->log('Vizion', 'RES | ' . $result->debugSql);
 
 		// Return
 		return json_encode([
