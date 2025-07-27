@@ -99,7 +99,7 @@ class StaticReportConfigProvider implements IReportConfigProvider {
 					]
 				]
 			],
-			"from" => "git_repository",
+			"table" => "git_repository",
 			"where" => [
 				"type" => "op",
 				"operator" => "=",
