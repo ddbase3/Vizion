@@ -1,6 +1,7 @@
 <div id="reportDatatable"></div>
 
 <script>
+document.addEventListener('DOMContentLoaded', () => {
 	async function initReportDatatable(columns, config) {
 		await AssetLoader.loadCssAsync('<?php echo $this->_['resolve']('plugin/ClientStack/assets/jquerydatatable/jquery.datatable.min.css'); ?>');
 		await AssetLoader.loadScriptAsync('<?php echo $this->_['resolve']('plugin/ClientStack/assets/jquerydatatable/jquery.datatable.min.js'); ?>');
@@ -31,5 +32,6 @@
 	} else {
 		initReportDatatable(columns, config);
 	}
+});
 </script>
 
