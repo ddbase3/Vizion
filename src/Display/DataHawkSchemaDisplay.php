@@ -6,7 +6,7 @@ use Base3\Api\IAssetResolver;
 use Base3\Api\IMvcView;
 use Base3\Api\IDisplay;
 use ModuledPage\Page\AbstractModuleContent;
-use DataHawk\Api\IReportSchemaProvider;
+use ResourceFoundation\Api\IQuerySchemaProvider;
 
 class DataHawkSchemaDisplay implements IDisplay {
 
@@ -14,7 +14,7 @@ class DataHawkSchemaDisplay implements IDisplay {
 
 	public function __construct(
 		private readonly IMvcView $view,
-		private readonly IReportSchemaProvider $reportschemaprovider,
+		private readonly IQuerySchemaProvider $reportschemaprovider,
 		private readonly IAssetResolver $assetResolver
 	) {}
 

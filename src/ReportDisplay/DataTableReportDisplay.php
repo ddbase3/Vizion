@@ -6,8 +6,8 @@ use Base3\Api\IAssetResolver;
 use Base3\Api\IDisplay;
 use Base3\Api\IMvcView;
 use Base3\Logger\Api\ILogger;
-use DataHawk\Api\IReportQueryService;
-use DataHawk\Dto\QueryResult;
+use ResourceFoundation\Api\IQueryService;
+use ResourceFoundation\Dto\QueryResult;
 
 class DataTableReportDisplay implements IDisplay {
 
@@ -18,7 +18,7 @@ class DataTableReportDisplay implements IDisplay {
 
 	public function __construct(
 		private readonly IMvcView $view,
-		private readonly IReportQueryService $reportqueryservice,
+		private readonly IQueryService $reportqueryservice,
 		private readonly IAssetResolver $assetResolver,
 		private readonly ILogger $logger
 	) {}

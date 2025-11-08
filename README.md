@@ -83,7 +83,7 @@ echo $display->getOutput('html');
 * `GeneralReportDisplay` is the dispatcher and also acts as a fallback `IDisplay`
 * `IReportConfigProvider` resolves the report config by report key
 * `IDisplay` implementations (e.g. `DataTableReportDisplay`) render based on config
-* Data is fetched lazily inside each Display class using `IReportQueryService`
+* Data is fetched lazily inside each Display class using `IQueryService`
 
 ## Roadmap
 
