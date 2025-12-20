@@ -9,7 +9,6 @@ use Base3\Api\IAssetResolver;
 use Base3\Logger\Api\ILogger;
 use ResourceFoundation\Api\IQueryService;
 use ResourceFoundation\Dto\QueryResult;
-use ResourceFoundation\Dto\TableMetadata;
 
 if (!defined('DIR_PLUGIN')) {
 	define('DIR_PLUGIN', '/plugins/');
@@ -30,13 +29,10 @@ final class DataTableReportDisplayTest extends TestCase {
 	}
 
 	public function testGetOutputJsonBuildsQueriesAndReturnsExpectedJson(): void {
-		$view = new FakeMvcView();
+		$viewState = $this->makeViewState();
+		$view = $this->createMvcViewStub($viewState);
 
-		$countResult = $this->makeQueryResult(
-			[['__total__' => 15]],
-			'COUNT SQL'
-		);
-
+		$countResult = $this->makeQueryResult([['__total__' => 15]], 'COUNT SQL');
 		$dataResult = $this->makeQueryResult(
 			[
 				['name' => 'Alice'],
@@ -45,9 +41,14 @@ final class DataTableReportDisplayTest extends TestCase {
 			'DATA SQL'
 		);
 
-		$queryService = new FakeQueryService([$countResult, $dataResult]);
-		$assetResolver = new FakeAssetResolver();
-		$logger = new FakeLogger();
+		$queryState = $this->makeQueryState([$countResult, $dataResult]);
+		$queryService = $this->createQueryServiceStub($queryState);
+
+		$assetState = ['resolved' => []];
+		$assetResolver = $this->createAssetResolverStub($assetState);
+
+		$logState = ['legacyLogs' => []];
+		$logger = $this->createLoggerStub($logState);
 
 		$display = new DataTableReportDisplay($view, $queryService, $assetResolver, $logger);
 
@@ -108,16 +109,22 @@ final class DataTableReportDisplayTest extends TestCase {
 			$data['data']
 		);
 
-		$this->assertCount(2, $queryService->queries);
+		$this->assertCount(2, $queryState['queries']);
 
-		$countQuery = $queryService->queries[0];
-		$dataQuery = $queryService->queries[1];
+		$countQuery = $queryState['queries'][0];
+		$dataQuery = $queryState['queries'][1];
 
+		$this->assertSame('select', $countQuery['type'] ?? null);
 		$this->assertArrayHasKey('fields', $countQuery);
+
 		$lastField = end($countQuery['fields']);
-		$this->assertSame('__total__', $lastField['alias']);
+		$this->assertSame('__total__', $lastField['alias'] ?? null);
+		$this->assertSame('windowfn', $lastField['element']['type'] ?? null);
+		$this->assertSame('COUNT', $lastField['element']['function'] ?? null);
+
 		$this->assertArrayNotHasKey('limit', $countQuery);
 		$this->assertArrayNotHasKey('offset', $countQuery);
+		$this->assertArrayNotHasKey('order_by', $countQuery);
 
 		$this->assertSame(2, $dataQuery['limit']);
 		$this->assertSame(2, $dataQuery['offset']);
@@ -125,23 +132,132 @@ final class DataTableReportDisplayTest extends TestCase {
 		$this->assertArrayHasKey('order_by', $dataQuery);
 		$this->assertSame('DESC', $dataQuery['order_by'][0]['direction']);
 
-		$this->assertCount(2, $logger->legacyLogs);
-		$this->assertSame('Vizion', $logger->legacyLogs[0]['scope']);
-		$this->assertStringContainsString('CNT |', $logger->legacyLogs[0]['message']);
-		$this->assertStringContainsString('COUNT SQL', $logger->legacyLogs[0]['message']);
+		$this->assertCount(2, $logState['legacyLogs']);
+		$this->assertSame('Vizion', $logState['legacyLogs'][0]['scope']);
+		$this->assertStringContainsString('CNT |', $logState['legacyLogs'][0]['message']);
+		$this->assertStringContainsString('COUNT SQL', $logState['legacyLogs'][0]['message']);
 
-		$this->assertSame('Vizion', $logger->legacyLogs[1]['scope']);
-		$this->assertStringContainsString('RES |', $logger->legacyLogs[1]['message']);
-		$this->assertStringContainsString('DATA SQL', $logger->legacyLogs[1]['message']);
+		$this->assertSame('Vizion', $logState['legacyLogs'][1]['scope']);
+		$this->assertStringContainsString('RES |', $logState['legacyLogs'][1]['message']);
+		$this->assertStringContainsString('DATA SQL', $logState['legacyLogs'][1]['message']);
+	}
+
+	public function testGetOutputJsonCopiesGroupAndHavingToBothQueries(): void {
+		$viewState = $this->makeViewState();
+		$view = $this->createMvcViewStub($viewState);
+
+		$countResult = $this->makeQueryResult([['__total__' => 1]], 'COUNT SQL');
+		$dataResult = $this->makeQueryResult([['x' => 1]], 'DATA SQL');
+
+		$queryState = $this->makeQueryState([$countResult, $dataResult]);
+		$queryService = $this->createQueryServiceStub($queryState);
+
+		$assetResolver = $this->createStub(IAssetResolver::class);
+		$logger = $this->createStub(ILogger::class);
+
+		$display = new DataTableReportDisplay($view, $queryService, $assetResolver, $logger);
+
+		$backupGet = $_GET ?? [];
+		$_GET = [];
+
+		$config = [
+			'fields' => [
+				[
+					'alias' => 'x',
+					'element' => [
+						'type' => 'fld',
+						'table' => 't',
+						'field' => 'x',
+					],
+					'config' => [],
+				],
+			],
+			'group' => [
+				['type' => 'fld', 'table' => 't', 'field' => 'x'],
+			],
+			'having' => [
+				'type' => 'op',
+				'operator' => '>',
+				'params' => [
+					['type' => 'fld', 'table' => 't', 'field' => 'x'],
+					0,
+				],
+			],
+		];
+
+		$display->setData($config);
+		$display->getOutput('json');
+
+		$_GET = $backupGet;
+
+		$this->assertCount(2, $queryState['queries']);
+
+		$countQuery = $queryState['queries'][0];
+		$dataQuery = $queryState['queries'][1];
+
+		$this->assertSame($config['group'], $countQuery['group'] ?? null);
+		$this->assertSame($config['having'], $countQuery['having'] ?? null);
+
+		$this->assertSame($config['group'], $dataQuery['group'] ?? null);
+		$this->assertSame($config['having'], $dataQuery['having'] ?? null);
+	}
+
+	public function testGetOutputJsonDoesNotSetOrderByWhenSortAliasIsUnknown(): void {
+		$viewState = $this->makeViewState();
+		$view = $this->createMvcViewStub($viewState);
+
+		$countResult = $this->makeQueryResult([['__total__' => 1]], 'COUNT SQL');
+		$dataResult = $this->makeQueryResult([['name' => 'Alice']], 'DATA SQL');
+
+		$queryState = $this->makeQueryState([$countResult, $dataResult]);
+		$queryService = $this->createQueryServiceStub($queryState);
+
+		$assetResolver = $this->createStub(IAssetResolver::class);
+		$logger = $this->createStub(ILogger::class);
+
+		$display = new DataTableReportDisplay($view, $queryService, $assetResolver, $logger);
+
+		$backupGet = $_GET ?? [];
+		$_GET = [
+			'sort' => 'does_not_exist',
+			'direction' => 'desc',
+		];
+
+		$config = [
+			'fields' => [
+				[
+					'alias' => 'name',
+					'element' => [
+						'type' => 'fld',
+						'table' => 'users',
+						'field' => 'name',
+					],
+					'config' => [],
+				],
+			],
+		];
+
+		$display->setData($config);
+		$display->getOutput('json');
+
+		$_GET = $backupGet;
+
+		$dataQuery = $queryState['queries'][1];
+		$this->assertArrayNotHasKey('order_by', $dataQuery);
 	}
 
 	public function testGetOutputHtmlAssignsViewVariablesAndUsesAssetResolver(): void {
-		$view = new FakeMvcView();
-		$view->output = 'TEMPLATE OUTPUT';
+		$viewState = $this->makeViewState();
+		$viewState['output'] = 'TEMPLATE OUTPUT';
+		$view = $this->createMvcViewStub($viewState);
 
-		$queryService = new FakeQueryService();
-		$assetResolver = new FakeAssetResolver();
-		$logger = new FakeLogger();
+		$queryState = $this->makeQueryState([]);
+		$queryService = $this->createQueryServiceStub($queryState);
+
+		$assetState = ['resolved' => []];
+		$assetResolver = $this->createAssetResolverStub($assetState);
+
+		$logger = $this->createStub(ILogger::class);
 
 		$display = new DataTableReportDisplay($view, $queryService, $assetResolver, $logger);
 
@@ -171,37 +287,40 @@ final class DataTableReportDisplayTest extends TestCase {
 
 		$this->assertSame('TEMPLATE OUTPUT', $html);
 
-		$this->assertSame(DIR_PLUGIN . 'Vizion', $view->path);
-		$this->assertSame('ReportDisplay/DataTableReportDisplay.php', $view->template);
+		$this->assertSame(DIR_PLUGIN . 'Vizion', $viewState['path']);
+		$this->assertSame('ReportDisplay/DataTableReportDisplay.php', $viewState['template']);
 
 		$this->assertSame(
 			'?name=generalreportdisplay&out=json&report=' . urlencode('my_report'),
-			$view->assigned['ajaxUrl'] ?? null
+			$viewState['assigned']['ajaxUrl'] ?? null
 		);
 
-		$columns = $view->assigned['columns'] ?? null;
+		$columns = $viewState['assigned']['columns'] ?? null;
 		$this->assertIsArray($columns);
 		$this->assertSame('name', $columns[0]['key']);
 		$this->assertSame('User Name', $columns[0]['label']);
 		$this->assertFalse($columns[0]['visible']);
 
-		$this->assertSame($config, $view->assigned['config'] ?? null);
+		$this->assertSame($config, $viewState['assigned']['config'] ?? null);
 
-		$resolve = $view->assigned['resolve'] ?? null;
+		$resolve = $viewState['assigned']['resolve'] ?? null;
 		$this->assertIsCallable($resolve);
 
 		$resultPath = $resolve('css/style.css');
 		$this->assertSame('/assets/css/style.css', $resultPath);
-		$this->assertSame(['css/style.css'], $assetResolver->resolved);
+		$this->assertSame(['css/style.css'], $assetState['resolved']);
 	}
 
 	public function testGetOutputDefaultsToHtml(): void {
-		$view = new FakeMvcView();
-		$view->output = 'DEFAULT HTML';
+		$viewState = $this->makeViewState();
+		$viewState['output'] = 'DEFAULT HTML';
+		$view = $this->createMvcViewStub($viewState);
 
-		$queryService = new FakeQueryService();
-		$assetResolver = new FakeAssetResolver();
-		$logger = new FakeLogger();
+		$queryState = $this->makeQueryState([]);
+		$queryService = $this->createQueryServiceStub($queryState);
+
+		$assetResolver = $this->createStub(IAssetResolver::class);
+		$logger = $this->createStub(ILogger::class);
 
 		$display = new DataTableReportDisplay($view, $queryService, $assetResolver, $logger);
 		$display->setData([]);
@@ -210,11 +329,16 @@ final class DataTableReportDisplayTest extends TestCase {
 	}
 
 	private function createDisplay(): DataTableReportDisplay {
+		$viewState = $this->makeViewState();
+		$queryState = $this->makeQueryState([]);
+		$assetState = ['resolved' => []];
+		$logState = ['legacyLogs' => []];
+
 		return new DataTableReportDisplay(
-			new FakeMvcView(),
-			new FakeQueryService(),
-			new FakeAssetResolver(),
-			new FakeLogger()
+			$this->createMvcViewStub($viewState),
+			$this->createQueryServiceStub($queryState),
+			$this->createAssetResolverStub($assetState),
+			$this->createLoggerStub($logState)
 		);
 	}
 
@@ -226,129 +350,93 @@ final class DataTableReportDisplayTest extends TestCase {
 		$qr->debugSql = $debugSql;
 		return $qr;
 	}
-}
 
-class FakeMvcView implements IMvcView {
-
-	public string $path = '.';
-	public string $template = 'default';
-	public array $assigned = [];
-	public string $output = '';
-	public array $bricks = [];
-
-	public function setPath(string $path = '.'): void {
-		$this->path = $path;
-	}
-
-	public function assign(string $key, $value): void {
-		$this->assigned[$key] = $value;
-	}
-
-	public function setTemplate(string $template = 'default'): void {
-		$this->template = $template;
-	}
-
-	public function loadTemplate(): string {
-		return $this->output;
-	}
-
-	public function loadBricks(string $set, string $language = ''): void {
-		$this->bricks[$set] = $this->bricks[$set] ?? [];
-	}
-
-	public function getBricks(string $set): ?array {
-		return $this->bricks[$set] ?? null;
-	}
-}
-
-class FakeQueryService implements IQueryService {
-
-	public array $results;
-	public array $queries = [];
-
-	public function __construct(array $results = []) {
-		$this->results = $results;
-	}
-
-	public function listTables(): array {
-		return [];
-	}
-
-	public function getTable(string $tableName): ?TableMetadata {
-		return null;
-	}
-
-	public function executeQuery(array $queryJson): QueryResult {
-		$this->queries[] = $queryJson;
-
-		if (count($this->results) > 0) {
-			$result = array_shift($this->results);
-			if ($result instanceof QueryResult) return $result;
-		}
-
-		$ref = new \ReflectionClass(QueryResult::class);
-		/** @var QueryResult $fallback */
-		$fallback = $ref->newInstanceWithoutConstructor();
-		$fallback->rows = [];
-		$fallback->debugSql = '';
-		return $fallback;
-	}
-
-	public function listDomains(): array {
-		return [];
-	}
-
-	public function listCategories(): array {
-		return [];
-	}
-
-	public function listTags(): array {
-		return [];
-	}
-}
-
-class FakeAssetResolver implements IAssetResolver {
-
-	public array $resolved = [];
-
-	public function resolve(string $path): string {
-		$this->resolved[] = $path;
-		return '/assets/' . $path;
-	}
-}
-
-class FakeLogger implements ILogger {
-
-	public array $legacyLogs = [];
-
-	public function emergency(string|\Stringable $message, array $context = []): void {}
-	public function alert(string|\Stringable $message, array $context = []): void {}
-	public function critical(string|\Stringable $message, array $context = []): void {}
-	public function error(string|\Stringable $message, array $context = []): void {}
-	public function warning(string|\Stringable $message, array $context = []): void {}
-	public function notice(string|\Stringable $message, array $context = []): void {}
-	public function info(string|\Stringable $message, array $context = []): void {}
-	public function debug(string|\Stringable $message, array $context = []): void {}
-	public function logLevel(string $level, string|\Stringable $message, array $context = []): void {}
-
-	public function log(string $scope, string $log, ?int $timestamp = null): bool {
-		$this->legacyLogs[] = [
-			'scope' => $scope,
-			'message' => $log,
-			'timestamp' => $timestamp,
+	private function makeViewState(): array {
+		return [
+			'path' => '.',
+			'template' => 'default',
+			'assigned' => [],
+			'output' => '',
+			'bricks' => [],
 		];
-		return true;
 	}
 
-	public function getScopes(): array {
-		return [];
+	private function makeQueryState(array $results): array {
+		return [
+			'results' => $results,
+			'queries' => [],
+		];
 	}
 
-	public function getNumOfScopes() {
-		return 0;
+	private function createMvcViewStub(array &$state): IMvcView {
+		$view = $this->createStub(IMvcView::class);
+
+		$view->method('setPath')->willReturnCallback(function(string $path = '.') use (&$state): void {
+			$state['path'] = $path;
+		});
+
+		$view->method('assign')->willReturnCallback(function(string $key, $value) use (&$state): void {
+			$state['assigned'][$key] = $value;
+		});
+
+		$view->method('setTemplate')->willReturnCallback(function(string $template = 'default') use (&$state): void {
+			$state['template'] = $template;
+		});
+
+		$view->method('loadTemplate')->willReturnCallback(function() use (&$state): string {
+			return (string)$state['output'];
+		});
+
+		return $view;
 	}
 
-	public function getLogs(string $scope, int $num = 50, bool $reverse = true): array {
-		return [];
+	private function createQueryServiceStub(array &$state): IQueryService {
+		$svc = $this->createStub(IQueryService::class);
+
+		$svc->method('executeQuery')->willReturnCallback(function(array $queryJson) use (&$state): QueryResult {
+			$state['queries'][] = $queryJson;
+
+			if (count($state['results']) > 0) {
+				$next = array_shift($state['results']);
+				if ($next instanceof QueryResult) {
+					return $next;
+				}
+			}
+
+			$ref = new \ReflectionClass(QueryResult::class);
+			/** @var QueryResult $fallback */
+			$fallback = $ref->newInstanceWithoutConstructor();
+			$fallback->rows = [];
+			$fallback->debugSql = '';
+			return $fallback;
+		});
+
+		return $svc;
+	}
+
+	private function createAssetResolverStub(array &$state): IAssetResolver {
+		$ar = $this->createStub(IAssetResolver::class);
+
+		$ar->method('resolve')->willReturnCallback(function(string $path) use (&$state): string {
+			$state['resolved'][] = $path;
+			return '/assets/' . $path;
+		});
+
+		return $ar;
+	}
+
+	private function createLoggerStub(array &$state): ILogger {
+		$logger = $this->createStub(ILogger::class);
+
+		$logger->method('log')->willReturnCallback(function(string $scope, string $log, ?int $timestamp = null) use (&$state): bool {
+			$state['legacyLogs'][] = [
+				'scope' => $scope,
+				'message' => $log,
+				'timestamp' => $timestamp,
+			];
+			return true;
+		});
+
+		return $logger;
 	}
 }
