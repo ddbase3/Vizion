@@ -5,6 +5,7 @@ namespace Vizion\ReportDisplay;
 use Base3\Api\IAssetResolver;
 use Base3\Api\IDisplay;
 use Base3\Api\IMvcView;
+use Base3\Configuration\Api\IConfiguration;
 use Base3\Logger\Api\ILogger;
 use ResourceFoundation\Api\IQueryService;
 use ResourceFoundation\Dto\QueryResult;
@@ -20,7 +21,8 @@ class DataTableReportDisplay implements IDisplay {
 		private readonly IMvcView $view,
 		private readonly IQueryService $reportqueryservice,
 		private readonly IAssetResolver $assetResolver,
-		private readonly ILogger $logger
+		private readonly ILogger $logger,
+		private readonly IConfiguration $configuration
 	) {}
 
 	public static function getName(): string {
@@ -203,8 +205,9 @@ class DataTableReportDisplay implements IDisplay {
 			'visible' => $f['config']['visible'] ?? true
 		], $fields);
 
+		$endpoint = $this->configuration->get('base')['endpoint'] ?? '';
 		$report = $this->config['report'] ?? '';
-		$ajaxUrl = '?name=generalreportdisplay&out=json&report=' . urlencode($report);
+		$ajaxUrl = $endpoint . '?name=generalreportdisplay&out=json&report=' . urlencode($report);
 
 		$this->view->assign('ajaxUrl', $ajaxUrl);
 		$this->view->assign('columns', $columns);
@@ -219,4 +222,3 @@ class DataTableReportDisplay implements IDisplay {
 		return "Displays data as a jQuery DataTable using the Vizion ReportDisplay system.";
 	}
 }
-
