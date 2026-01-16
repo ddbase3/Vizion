@@ -14,7 +14,7 @@ class DataHawkSchemaDisplay implements IDisplay {
 
 	public function __construct(
 		private readonly IMvcView $view,
-		private readonly IQuerySchemaProvider $reportschemaprovider,
+		private readonly IQuerySchemaProvider $queryschemaprovider,
 		private readonly IAssetResolver $assetResolver
 	) {}
 
@@ -35,7 +35,7 @@ class DataHawkSchemaDisplay implements IDisplay {
 	public function getOutput($out = 'html') {
 
 		$data = ['data' => [], 'foreignKeys' => []];
-		$schema = $this->reportschemaprovider->getSchema();
+		$schema = $this->queryschemaprovider->getSchema();
 
 		foreach ($schema as $table) {
 
