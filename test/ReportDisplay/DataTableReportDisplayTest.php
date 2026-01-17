@@ -6,6 +6,7 @@ use PHPUnit\Framework\TestCase;
 use Vizion\ReportDisplay\DataTableReportDisplay;
 use Base3\Api\IMvcView;
 use Base3\Api\IAssetResolver;
+use Base3\Configuration\Api\IConfiguration;
 use Base3\Logger\Api\ILogger;
 use ResourceFoundation\Api\IQueryService;
 use ResourceFoundation\Dto\QueryResult;
@@ -50,7 +51,10 @@ final class DataTableReportDisplayTest extends TestCase {
 		$logState = ['legacyLogs' => []];
 		$logger = $this->createLoggerStub($logState);
 
-		$display = new DataTableReportDisplay($view, $queryService, $assetResolver, $logger);
+		$configState = ['base' => ['endpoint' => '']];
+		$configuration = $this->createConfigurationStub($configState);
+
+		$display = new DataTableReportDisplay($view, $queryService, $assetResolver, $logger, $configuration);
 
 		$backupGet = $_GET ?? [];
 		$_GET = [
@@ -155,7 +159,10 @@ final class DataTableReportDisplayTest extends TestCase {
 		$assetResolver = $this->createStub(IAssetResolver::class);
 		$logger = $this->createStub(ILogger::class);
 
-		$display = new DataTableReportDisplay($view, $queryService, $assetResolver, $logger);
+		$configState = ['base' => ['endpoint' => '']];
+		$configuration = $this->createConfigurationStub($configState);
+
+		$display = new DataTableReportDisplay($view, $queryService, $assetResolver, $logger, $configuration);
 
 		$backupGet = $_GET ?? [];
 		$_GET = [];
@@ -215,7 +222,10 @@ final class DataTableReportDisplayTest extends TestCase {
 		$assetResolver = $this->createStub(IAssetResolver::class);
 		$logger = $this->createStub(ILogger::class);
 
-		$display = new DataTableReportDisplay($view, $queryService, $assetResolver, $logger);
+		$configState = ['base' => ['endpoint' => '']];
+		$configuration = $this->createConfigurationStub($configState);
+
+		$display = new DataTableReportDisplay($view, $queryService, $assetResolver, $logger, $configuration);
 
 		$backupGet = $_GET ?? [];
 		$_GET = [
@@ -259,7 +269,10 @@ final class DataTableReportDisplayTest extends TestCase {
 
 		$logger = $this->createStub(ILogger::class);
 
-		$display = new DataTableReportDisplay($view, $queryService, $assetResolver, $logger);
+		$configState = ['base' => ['endpoint' => '']];
+		$configuration = $this->createConfigurationStub($configState);
+
+		$display = new DataTableReportDisplay($view, $queryService, $assetResolver, $logger, $configuration);
 
 		$config = [
 			'report' => 'my_report',
@@ -322,7 +335,10 @@ final class DataTableReportDisplayTest extends TestCase {
 		$assetResolver = $this->createStub(IAssetResolver::class);
 		$logger = $this->createStub(ILogger::class);
 
-		$display = new DataTableReportDisplay($view, $queryService, $assetResolver, $logger);
+		$configState = ['base' => ['endpoint' => '']];
+		$configuration = $this->createConfigurationStub($configState);
+
+		$display = new DataTableReportDisplay($view, $queryService, $assetResolver, $logger, $configuration);
 		$display->setData([]);
 
 		$this->assertSame('DEFAULT HTML', $display->getOutput());
@@ -333,12 +349,14 @@ final class DataTableReportDisplayTest extends TestCase {
 		$queryState = $this->makeQueryState([]);
 		$assetState = ['resolved' => []];
 		$logState = ['legacyLogs' => []];
+		$configState = ['base' => ['endpoint' => '']];
 
 		return new DataTableReportDisplay(
 			$this->createMvcViewStub($viewState),
 			$this->createQueryServiceStub($queryState),
 			$this->createAssetResolverStub($assetState),
-			$this->createLoggerStub($logState)
+			$this->createLoggerStub($logState),
+			$this->createConfigurationStub($configState)
 		);
 	}
 
@@ -438,5 +456,21 @@ final class DataTableReportDisplayTest extends TestCase {
 		});
 
 		return $logger;
+	}
+
+	private function createConfigurationStub(array &$state): IConfiguration {
+		$cfg = $this->createStub(IConfiguration::class);
+
+		$cfg->method('get')->willReturnCallback(function($configuration = "") use (&$state) {
+			if ($configuration === "" || $configuration === null) {
+				return $state;
+			}
+			if (is_string($configuration) && array_key_exists($configuration, $state)) {
+				return $state[$configuration];
+			}
+			return null;
+		});
+
+		return $cfg;
 	}
 }
