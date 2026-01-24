@@ -2,12 +2,11 @@
 
 namespace Vizion\Test\ReportDisplay;
 
-require_once __DIR__ . '/TestClassMap.php';
-
 use PHPUnit\Framework\TestCase;
 use Vizion\ReportDisplay\GeneralReportDisplay;
 use Base3\Api\IRequest;
 use Base3\Api\IDisplay;
+use Base3\Test\Core\ClassMapStub;
 use Vizion\Api\IReportConfigProvider;
 
 final class GeneralReportDisplayTest extends TestCase {
@@ -18,7 +17,7 @@ final class GeneralReportDisplayTest extends TestCase {
 
 	public function testGetHelpReturnsExpectedValue(): void {
 		$req = $this->createStub(IRequest::class);
-		$classmap = new TestClassMap();
+		$classmap = new ClassMapStub();
 		$configProvider = $this->createStub(IReportConfigProvider::class);
 
 		$display = new GeneralReportDisplay($req, $classmap, $configProvider);
@@ -30,6 +29,8 @@ final class GeneralReportDisplayTest extends TestCase {
 	}
 
 	public function testGetOutputUsesSetDataReportAndDelegatesToResolvedDisplay(): void {
+		DataTableReportDisplayStub::reset();
+
 		$req = $this->createStub(IRequest::class);
 
 		$configProvider = $this->createStub(IReportConfigProvider::class);
@@ -38,20 +39,9 @@ final class GeneralReportDisplayTest extends TestCase {
 			'fields' => [],
 		]);
 
-		$resolvedConfig = null;
-		$resolvedOutArg = null;
-
-		$inner = $this->createStub(IDisplay::class);
-		$inner->method('setData')->willReturnCallback(function($data) use (&$resolvedConfig): void {
-			$resolvedConfig = $data;
-		});
-		$inner->method('getOutput')->willReturnCallback(function($out = 'html') use (&$resolvedOutArg): string {
-			$resolvedOutArg = $out;
-			return 'INNER_OUTPUT';
-		});
-
-		$classmap = new TestClassMap();
-		$classmap->returnValue = $inner;
+		$classmap = new ClassMapStub();
+		$classmap->registerInterface(IDisplay::class, DataTableReportDisplayStub::class);
+		$classmap->registerName('datatablereportdisplay', DataTableReportDisplayStub::class);
 
 		$display = new GeneralReportDisplay($req, $classmap, $configProvider);
 		$display->setData('r1');
@@ -60,19 +50,28 @@ final class GeneralReportDisplayTest extends TestCase {
 
 		$this->assertSame('INNER_OUTPUT', $out);
 
-		$this->assertNotNull($resolvedConfig);
+		$this->assertNotNull(DataTableReportDisplayStub::$lastInstance);
+		$this->assertIsArray(DataTableReportDisplayStub::$lastInstance->receivedData);
+
+		$resolvedConfig = DataTableReportDisplayStub::$lastInstance->receivedData;
 		$this->assertSame('r1', $resolvedConfig['report'] ?? null);
 		$this->assertSame('datatablereportdisplay', $resolvedConfig['display'] ?? null);
 
-		$this->assertSame('json', $resolvedOutArg);
+		$this->assertSame('json', DataTableReportDisplayStub::$lastInstance->receivedOut);
 
-		$this->assertCount(1, $classmap->calls);
-		$this->assertSame('getInstanceByInterfaceName', $classmap->calls[0]['method']);
-		$this->assertSame(IDisplay::class, $classmap->calls[0]['interface']);
-		$this->assertSame('datatablereportdisplay', $classmap->calls[0]['name']);
+		// ClassMapStub logs both: getInstanceByInterfaceName + instantiate
+		$methods = array_values(array_map(fn($c) => $c['method'], $classmap->calls));
+
+		$this->assertSame(['getInstanceByInterfaceName', 'instantiate'], array_slice($methods, 0, 2));
+
+		$this->assertSame(IDisplay::class, $classmap->calls[0]['interface'] ?? null);
+		$this->assertSame('datatablereportdisplay', $classmap->calls[0]['name'] ?? null);
 	}
 
 	public function testGetOutputReadsReportFromRequestWhenNotSetBySetData(): void {
+		DataTableReportDisplayStub::reset();
+		DataTableReportDisplayStub::$nextOutput = 'OK';
+
 		$req = $this->createStub(IRequest::class);
 		$req->method('get')->with('report')->willReturn('r2');
 
@@ -82,11 +81,9 @@ final class GeneralReportDisplayTest extends TestCase {
 			'fields' => [],
 		]);
 
-		$inner = $this->createStub(IDisplay::class);
-		$inner->method('getOutput')->willReturn('OK');
-
-		$classmap = new TestClassMap();
-		$classmap->returnValue = $inner;
+		$classmap = new ClassMapStub();
+		$classmap->registerInterface(IDisplay::class, DataTableReportDisplayStub::class);
+		$classmap->registerName('datatablereportdisplay', DataTableReportDisplayStub::class);
 
 		$display = new GeneralReportDisplay($req, $classmap, $configProvider);
 
@@ -97,7 +94,7 @@ final class GeneralReportDisplayTest extends TestCase {
 		$req = $this->createStub(IRequest::class);
 		$req->method('get')->with('report')->willReturn(null);
 
-		$classmap = new TestClassMap();
+		$classmap = new ClassMapStub();
 		$configProvider = $this->createStub(IReportConfigProvider::class);
 
 		$display = new GeneralReportDisplay($req, $classmap, $configProvider);
@@ -117,8 +114,7 @@ final class GeneralReportDisplayTest extends TestCase {
 			'display' => 'nope',
 		]);
 
-		$classmap = new TestClassMap();
-		$classmap->returnValue = null;
+		$classmap = new ClassMapStub(); // no registrations => invalid display
 
 		$display = new GeneralReportDisplay($req, $classmap, $configProvider);
 
@@ -126,5 +122,40 @@ final class GeneralReportDisplayTest extends TestCase {
 		$this->expectExceptionMessage('Invalid display: nope');
 
 		$display->getOutput('html');
+	}
+}
+
+final class DataTableReportDisplayStub implements IDisplay {
+
+	public static ?self $lastInstance = null;
+	public static string $nextOutput = 'INNER_OUTPUT';
+
+	public ?array $receivedData = null;
+	public ?string $receivedOut = null;
+
+	public function __construct() {
+		self::$lastInstance = $this;
+	}
+
+	public static function reset(): void {
+		self::$lastInstance = null;
+		self::$nextOutput = 'INNER_OUTPUT';
+	}
+
+	public static function getName(): string {
+		return 'datatablereportdisplay';
+	}
+
+	public function setData($data): void {
+		$this->receivedData = is_array($data) ? $data : null;
+	}
+
+	public function getOutput($out = "html") {
+		$this->receivedOut = (string)$out;
+		return self::$nextOutput;
+	}
+
+	public function getHelp() {
+		return 'HELP';
 	}
 }
