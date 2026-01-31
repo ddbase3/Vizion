@@ -32,7 +32,7 @@ class DataHawkSchemaDisplay implements IDisplay {
 
 	// Implementation of IOutput
 
-	public function getOutput($out = 'html') {
+	public function getOutput(string $out = 'html', bool $final = false): string {
 
 		$data = ['data' => [], 'foreignKeys' => []];
 		$schema = $this->queryschemaprovider->getSchema();
@@ -85,7 +85,7 @@ class DataHawkSchemaDisplay implements IDisplay {
 		return $this->view->loadTemplate();
 	}
 
-	public function getHelp() {
+	public function getHelp(): string {
 		return 'Help of DataHawkSchemaDisplay';
 	}
 }
