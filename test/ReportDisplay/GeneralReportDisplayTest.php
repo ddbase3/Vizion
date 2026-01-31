@@ -150,12 +150,12 @@ final class DataTableReportDisplayStub implements IDisplay {
 		$this->receivedData = is_array($data) ? $data : null;
 	}
 
-	public function getOutput($out = "html") {
+	public function getOutput(string $out = 'html', bool $final = false): string {
 		$this->receivedOut = (string)$out;
 		return self::$nextOutput;
 	}
 
-	public function getHelp() {
+	public function getHelp(): string {
 		return 'HELP';
 	}
 }
