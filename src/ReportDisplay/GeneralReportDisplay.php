@@ -28,7 +28,7 @@ class GeneralReportDisplay implements IReportDisplay {
 		$this->report = is_string($data) ? $data : null;
 	}
 
-	public function getOutput($out = "html") {
+	public function getOutput(string $out = 'html', bool $final = false): string {
 		if (!$this->report) {
 			$this->report = $this->request->get("report");
 			if (!$this->report) {
@@ -48,8 +48,7 @@ class GeneralReportDisplay implements IReportDisplay {
 		return $display->getOutput($out);
 	}
 
-	public function getHelp() {
+	public function getHelp(): string {
 		return "Displays a report based on the configured display type and configuration provider.";
 	}
 }
-

@@ -36,7 +36,7 @@ class DataTableReportDisplay implements IDisplay {
 		}
 	}
 
-	public function getOutput($out = "html") {
+	public function getOutput(string $out = 'html', bool $final = false): string {
 		return $out === "json"
 			? $this->getJsonOutput()
 			: $this->getHtmlOutput();
