@@ -93,5 +93,5 @@ echo $display->getOutput('html');
 
 ## License
 
-LGPL License
+GPL-3.0 License
 
