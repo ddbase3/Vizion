@@ -1,26 +1,37 @@
-		<div id="datahawkschema"></div>
+<?php
+	$schemaContainerId = 'datahawkschema_' . uniqid();
+?>
+<div id="<?php echo $schemaContainerId; ?>" class="datahawkschema"></div>
 
-		<script>
-			async function initDbDesigner(data) {
-				await AssetLoader.loadScriptAsync('<?php echo $this->_['resolve']('plugin/ClientStack/assets/dbdesigner/dbdesigner.min.js'); ?>');
-				console.log('DbDesigner loaded');
+<script>
+	(function() {
+		var containerId = <?php echo json_encode($schemaContainerId); ?>;
+		var data = <?php echo json_encode($this->_['data']); ?>;
+		var scriptUrl = <?php echo json_encode($this->_['resolve']('plugin/ClientStack/assets/dbdesigner/dbdesigner.min.js')); ?>;
 
-				$('#datahawkschema').dbdesigner().initializeFromData(data);
-			}
+		async function boot() {
+			await AssetLoader.loadScriptAsync(scriptUrl);
+			console.log('DbDesigner loaded for #' + containerId);
+			$('#' + containerId).dbdesigner().initializeFromData(data);
+		}
 
-			var data = <?php echo json_encode($this->_['data']); ?>;
+		if (document.readyState === 'loading') {
+			document.addEventListener('DOMContentLoaded', boot, { once: true });
+		} else {
+			boot();
+		}
+	})();
+</script>
 
-			if (document.readyState === 'loading') {
-				document.addEventListener('DOMContentLoaded', () => {
-					initDbDesigner(data);
-				});
-			} else {
-				initDbDesigner(data);
-			}
-		</script>
+<style>
+	#<?php echo $schemaContainerId; ?> {
+		position: relative;
+		height: 600px;
+		border-radius: 5px;
+		overflow: hidden;
+	}
 
-		<style>
-			#datahawkschema { position:relative; height:600px; border-radius:5px; <?php /* box-shadow:0 0 10px #ddd; */ ?>overflow:hidden; }
-			#datahawkschema * { line-height:1em; }
-		</style>
-
+	#<?php echo $schemaContainerId; ?> * {
+		line-height: 1em;
+	}
+</style>
