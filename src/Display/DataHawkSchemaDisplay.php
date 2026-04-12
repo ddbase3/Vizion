@@ -56,6 +56,7 @@ class DataHawkSchemaDisplay implements IDisplay {
 		foreach ($schema as $table) {
 
 			if ($this->displayData != null && isset($this->displayData['domain']) && $table->domain != $this->displayData['domain']) continue;
+			if ($this->displayData != null && isset($this->displayData['tags']) && empty(array_intersect($table->tags, $this->displayData['tags']))) continue;
 
 			$fields = [];
 			$primaryKeys = [];
