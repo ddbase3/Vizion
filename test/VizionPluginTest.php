@@ -7,6 +7,7 @@ use Vizion\VizionPlugin;
 use Base3\Api\IContainer;
 use Vizion\Api\IReportConfigProvider;
 use Vizion\Api\IReportDisplay;
+use Vizion\Api\IReportFilterService;
 
 final class VizionPluginTest extends TestCase {
 
@@ -45,6 +46,15 @@ final class VizionPluginTest extends TestCase {
 		$this->assertRegistration(
 			$calls,
 			IReportConfigProvider::class,
+			IContainer::SHARED | IContainer::NOOVERWRITE,
+			function($definition): void {
+				$this->assertIsCallable($definition);
+			}
+		);
+
+		$this->assertRegistration(
+			$calls,
+			IReportFilterService::class,
 			IContainer::SHARED | IContainer::NOOVERWRITE,
 			function($definition): void {
 				$this->assertIsCallable($definition);

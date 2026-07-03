@@ -10,6 +10,7 @@ use Base3\Api\IRequest;
 use Base3\LinkTarget\Api\ILinkTargetService;
 use ResourceFoundation\Api\IQueryService;
 use Vizion\Api\IReportConfigProvider;
+use Vizion\Api\IReportFilterService;
 use Throwable;
 
 final class MatrixReportDisplay implements IDisplay {
@@ -26,7 +27,8 @@ final class MatrixReportDisplay implements IDisplay {
 		private readonly IQueryService $queryService,
 		private readonly IReportConfigProvider $configProvider,
 		private readonly IClassMap $classmap,
-		private readonly ILinkTargetService $linkTargetService
+		private readonly ILinkTargetService $linkTargetService,
+		private readonly IReportFilterService $reportFilterService
 	) {}
 
 	public static function getName(): string {
@@ -65,7 +67,8 @@ final class MatrixReportDisplay implements IDisplay {
 			'report' => $report
 		]));
 		$this->view->assign('columns', $this->buildColumns($this->getFields()));
-		$this->view->assign('filterFields', $this->buildFilterFields($this->getFields()));
+		$this->view->assign('filterFields', $this->reportFilterService->buildGridFilterFields($this->getFields()));
+		$this->view->assign('filterInitialValues', $this->reportFilterService->buildInitialFilterValues($this->getFields()));
 		$this->view->assign('config', $config);
 		$this->view->assign('modulargridCssUrl', $this->assetResolver->resolve('plugin/ClientStack/assets/modulargrid/styles/modulargrid.css'));
 		$this->view->assign('modulargridJsUrl', $this->assetResolver->resolve('plugin/ClientStack/assets/modulargrid/index.js'));
@@ -209,7 +212,7 @@ final class MatrixReportDisplay implements IDisplay {
 			'pageSize' => $pageSize,
 			'search' => $search,
 			'sort' => $this->normalizeSort($payload['sort'] ?? null),
-			'filters' => $this->normalizeFilters($payload['filters'] ?? null)
+			'filters' => $this->reportFilterService->normalizeFilters($payload['filters'] ?? null, $this->getFields())
 		];
 	}
 
@@ -250,30 +253,7 @@ final class MatrixReportDisplay implements IDisplay {
 		];
 	}
 
-	/** @param mixed $filtersPayload @return array<string,string> */
-	private function normalizeFilters(mixed $filtersPayload): array {
-		$result = [];
-		$fieldDefs = $this->buildFieldDefs($this->getFields());
-
-		if(!is_array($filtersPayload)) {
-			return $result;
-		}
-
-		foreach($filtersPayload as $alias => $value) {
-			if(!is_string($alias) || !isset($fieldDefs[$alias]) || !is_scalar($value)) {
-				continue;
-			}
-
-			$value = trim((string) $value);
-			if($value !== '') {
-				$result[$alias] = $value;
-			}
-		}
-
-		return $result;
-	}
-
-	/** @param array<string,string> $filters @param array<string,mixed> $fieldDefs @return array<string,mixed>|null */
+	/** @param array<string,mixed> $filters @param array<string,mixed> $fieldDefs @return array<string,mixed>|null */
 	private function buildWhere(string $search, array $filters, array $fieldDefs): ?array {
 		$where = [];
 		$config = $this->getConfig();
@@ -304,15 +284,10 @@ final class MatrixReportDisplay implements IDisplay {
 			}
 		}
 
-		foreach($filters as $alias => $value) {
-			if(!isset($fieldDefs[$alias])) {
-				continue;
-			}
-			$field = $this->getField($alias);
-			$fieldConfig = isset($field['config']) && is_array($field['config']) ? $field['config'] : [];
-			$operator = strtoupper((string) ($fieldConfig['filterOperator'] ?? 'LIKE'));
-			$filterValue = $operator === 'LIKE' ? '%' . $value . '%' : $this->normalizeFilterValue($value, $fieldConfig);
-			$where[] = ['type' => 'op', 'operator' => $operator, 'params' => [$fieldDefs[$alias], $filterValue]];
+		$filterWhere = $this->reportFilterService->buildFilterWhere($filters, $this->getFields(), $fieldDefs);
+
+		if($filterWhere !== null) {
+			$where[] = $filterWhere;
 		}
 
 		if(count($where) === 0) {
@@ -422,26 +397,6 @@ final class MatrixReportDisplay implements IDisplay {
 		return $columns;
 	}
 
-	/** @param array<int,array<string,mixed>> $fields @return array<int,array<string,mixed>> */
-	private function buildFilterFields(array $fields): array {
-		$result = [];
-		foreach($fields as $field) {
-			$config = isset($field['config']) && is_array($field['config']) ? $field['config'] : [];
-			if(($config['filter'] ?? false) !== true || !isset($field['alias'])) {
-				continue;
-			}
-			$alias = (string) $field['alias'];
-			$result[] = [
-				'key' => $alias,
-				'label' => (string) ($config['label'] ?? $alias),
-				'type' => (string) ($config['filterType'] ?? 'text'),
-				'placeholder' => (string) ($config['filterPlaceholder'] ?? ($config['label'] ?? $alias)),
-				'width' => isset($config['filterWidth']) && is_numeric($config['filterWidth']) ? (int) $config['filterWidth'] : 140
-			];
-		}
-		return $result;
-	}
-
 	/** @return array<string,mixed> */
 	private function getField(string $alias): array {
 		foreach($this->getFields() as $field) {
@@ -456,12 +411,6 @@ final class MatrixReportDisplay implements IDisplay {
 		$field = $this->getField($alias);
 		$config = isset($field['config']) && is_array($field['config']) ? $field['config'] : [];
 		return (string) ($config['type'] ?? 'string');
-	}
-
-	/** @param array<string,mixed> $config */
-	private function normalizeFilterValue(string $value, array $config): mixed {
-		$type = strtolower((string) ($config['type'] ?? 'string'));
-		return ($type === 'number' || $type === 'integer' || $type === 'int') && is_numeric($value) ? (float) $value : $value;
 	}
 
 	/** @param array<string,mixed> $row */

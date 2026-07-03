@@ -1,3 +1,11 @@
+<?php
+	$json = static function($value): string {
+		return json_encode(
+			$value,
+			JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR
+		);
+	};
+?>
 <link rel="stylesheet" href="<?php echo htmlspecialchars((string) $this->_['modulargridCssUrl'], ENT_QUOTES); ?>" />
 
 <style>
@@ -20,15 +28,15 @@
 	}
 
 	.vizion-matrix-report-grid .vizion-matrix-report-panel--filters {
-		flex-wrap: wrap;
-		align-items: flex-start;
-		overflow-x: visible;
+		flex-wrap: nowrap;
+		align-items: center;
+		overflow-x: auto;
 	}
 
 	.vizion-matrix-report-grid .vizion-matrix-report-panel--filters .mg-control-group {
-		flex-wrap: wrap;
+		flex-wrap: nowrap;
 		align-items: center;
-		row-gap: 8px;
+		row-gap: 0;
 	}
 
 	.vizion-matrix-report-grid .vizion-matrix-report-panel > * {
@@ -53,6 +61,20 @@
 		white-space: nowrap;
 		color: #666;
 		font-size: 12px;
+	}
+
+	.vizion-matrix-report-grid .mg-inline-buttons,
+	.vizion-matrix-report-grid .mg-compact-filters {
+		flex-wrap: nowrap;
+	}
+
+	.vizion-matrix-report-grid .mg-compact-filter-picker .mg-select {
+		width: 145px;
+		min-width: 145px;
+	}
+
+	.vizion-matrix-report-grid .mg-compact-multiselect-summary {
+		max-width: 150px;
 	}
 
 	.vizion-matrix-report-grid .mg-input,
@@ -287,25 +309,50 @@
 <script type="module">
 	import {
 		AjaxAdapter,
-		ColumnVisibilityPlugin,
-		FiltersPlugin,
+		BulkActionsPlugin,
+		CompactFiltersPlugin,
 		HeaderMenuPlugin,
 		InfoPlugin,
 		InfiniteScrollPlugin,
 		ModularGrid,
 		ResetPlugin,
+		RowActionsPlugin,
 		RowDetailPlugin,
 		SearchPlugin,
+		SelectionPlugin,
 		SessionStoragePlugin
 	} from '<?php echo htmlspecialchars((string) $this->_['modulargridJsUrl'], ENT_QUOTES); ?>';
 
-	const ENDPOINT_URL = <?php echo json_encode((string) $this->_['ajaxUrl'], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE); ?>;
+	const ENDPOINT_URL = <?php echo $json((string) $this->_['ajaxUrl']); ?>;
 	const GRID_SELECTOR = '#vizion-matrix-report';
 	const LOG_SELECTOR = '#vizion-matrix-report-log';
-	const REPORT_COLUMNS = <?php echo json_encode($this->_['columns'], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE); ?>;
-	const FILTER_FIELDS = <?php echo json_encode($this->_['filterFields'], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE); ?>;
-	const REPORT_CONFIG = <?php echo json_encode($this->_['config'], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE); ?>;
+	const REPORT_COLUMNS = <?php echo $json($this->_['columns']); ?>;
+	const FILTER_FIELDS = <?php echo $json($this->_['filterFields']); ?>;
+	const FILTER_INITIAL_VALUES = <?php echo $json($this->_['filterInitialValues']); ?>;
+	const REPORT_CONFIG = <?php echo $json($this->_['config']); ?>;
 	const BATCH_SIZE = Number(REPORT_CONFIG?.config?.pageSize || 50);
+
+
+	function createShortHash(value) {
+		const text = String(value || '');
+		let hash = 0;
+
+		for (let index = 0; index < text.length; index += 1) {
+			hash = ((hash << 5) - hash) + text.charCodeAt(index);
+			hash |= 0;
+		}
+
+		return (hash >>> 0).toString(36);
+	}
+
+	function createFilterStorageSignature(fields, initialValues) {
+		return createShortHash(JSON.stringify({
+			fields: fields || [],
+			initialValues: initialValues || {}
+		}));
+	}
+
+	const FILTER_STORAGE_SIGNATURE = createFilterStorageSignature(FILTER_FIELDS, FILTER_INITIAL_VALUES);
 
 	const layout = {
 		type: 'stack',
@@ -321,7 +368,7 @@
 	function setLog(message) {
 		const logElement = document.querySelector(LOG_SELECTOR);
 		if (logElement) {
-			logElement.innerHTML = `<strong>Last action:</strong> ${escapeHtml(getText(message))}`;
+			logElement.innerHTML = '<strong>Last action:</strong> ' + escapeHtml(getText(message));
 		}
 	}
 
@@ -388,14 +435,166 @@
 		return wrapper;
 	}
 
+	function getFilterField(key) {
+		return FILTER_FIELDS.find((field) => field.key === key) || null;
+	}
+
+	function valueSignature(value) {
+		try {
+			return JSON.stringify(value);
+		} catch (error) {
+			return String(value);
+		}
+	}
+
+	function valuesEqual(left, right) {
+		return valueSignature(left) === valueSignature(right);
+	}
+
+	function getEmptyFilterValue(field) {
+		if (field && Object.prototype.hasOwnProperty.call(field, 'emptyValue')) {
+			return field.emptyValue;
+		}
+
+		const type = String(field?.type || '').toLowerCase();
+
+		if (type === 'multiselect') {
+			return [];
+		}
+
+		if (type === 'range') {
+			return { min: '', max: '' };
+		}
+
+		if (type === 'daterange' || type === 'datetimerange') {
+			return { from: '', to: '' };
+		}
+
+		if (type === 'checkbox') {
+			return false;
+		}
+
+		return '';
+	}
+
+	function isEmptyFilterValue(key, value) {
+		const field = getFilterField(key);
+		const emptyValue = getEmptyFilterValue(field);
+
+		if (valuesEqual(value, emptyValue)) {
+			return true;
+		}
+
+		if (Array.isArray(value)) {
+			return value.length === 0;
+		}
+
+		if (value && typeof value === 'object') {
+			return Object.values(value).every((entry) => entry === '' || entry === null || entry === undefined || (Array.isArray(entry) && entry.length === 0));
+		}
+
+		return value === '' || value === null || value === undefined;
+	}
+
 	function buildFilterPayload(filters) {
 		const result = {};
+
 		Object.entries(filters || {}).forEach(([key, value]) => {
-			if (value !== '' && value !== null && value !== undefined) {
+			if (!isEmptyFilterValue(key, value)) {
 				result[key] = value;
 			}
 		});
+
 		return result;
+	}
+
+	function renderRangeFilter(api) {
+		const wrapper = document.createElement('div');
+		const value = api.value && typeof api.value === 'object' ? api.value : {};
+		const minInput = document.createElement('input');
+		const maxInput = document.createElement('input');
+
+		wrapper.className = 'mg-inline-buttons mg-compact-filter-control';
+		minInput.type = 'number';
+		maxInput.type = 'number';
+		minInput.className = 'mg-input';
+		maxInput.className = 'mg-input';
+		minInput.placeholder = 'Min';
+		maxInput.placeholder = 'Max';
+		minInput.value = value.min ?? '';
+		maxInput.value = value.max ?? '';
+
+		[minInput, maxInput].forEach((input) => {
+			input.dataset.key = api.field.key;
+			input.dataset.filterKey = api.field.key;
+			input.style.width = '82px';
+			['min', 'max', 'step'].forEach((attribute) => {
+				if (api.field[attribute] !== undefined && api.field[attribute] !== null) {
+					input.setAttribute(attribute, String(api.field[attribute]));
+				}
+			});
+		});
+
+		const update = () => api.setValue({ min: minInput.value, max: maxInput.value });
+		minInput.addEventListener('change', update);
+		maxInput.addEventListener('change', update);
+
+		wrapper.appendChild(minInput);
+		wrapper.appendChild(maxInput);
+
+		return wrapper;
+	}
+
+	function renderDateRangeFilter(api) {
+		const wrapper = document.createElement('div');
+		const value = api.value && typeof api.value === 'object' ? api.value : {};
+		const fromInput = document.createElement('input');
+		const toInput = document.createElement('input');
+		const inputType = api.field.valueType === 'datetimerange' ? 'datetime-local' : 'date';
+
+		wrapper.className = 'mg-inline-buttons mg-compact-filter-control';
+		fromInput.type = inputType;
+		toInput.type = inputType;
+		fromInput.className = 'mg-input';
+		toInput.className = 'mg-input';
+		fromInput.value = value.from ?? '';
+		toInput.value = value.to ?? '';
+
+		[fromInput, toInput].forEach((input) => {
+			input.dataset.key = api.field.key;
+			input.dataset.filterKey = api.field.key;
+			input.style.width = inputType === 'datetime-local' ? '180px' : '135px';
+		});
+
+		const update = () => api.setValue({ from: fromInput.value, to: toInput.value });
+		fromInput.addEventListener('change', update);
+		toInput.addEventListener('change', update);
+
+		wrapper.appendChild(fromInput);
+		wrapper.appendChild(toInput);
+
+		return wrapper;
+	}
+
+	function buildGridFilterFields(fields) {
+		return (fields || []).map((field) => {
+			const nextField = Object.assign({}, field);
+			const type = String(field.type || '').toLowerCase();
+
+			if (type === 'range') {
+				nextField.type = 'custom';
+				nextField.valueType = 'range';
+				nextField.renderControl = renderRangeFilter;
+			}
+
+			if (type === 'daterange' || type === 'datetimerange') {
+				nextField.type = 'custom';
+				nextField.valueType = type;
+				nextField.renderControl = renderDateRangeFilter;
+			}
+
+			return nextField;
+		});
 	}
 
 	function buildSortTypes(columns) {
@@ -408,8 +607,7 @@
 
 	function buildColumns(columns) {
 		return columns.map((column) => {
-			const gridColumn = {
-				...column,
+			const gridColumn = Object.assign({}, column, {
 				headerMenu: {
 					defaultSortKey: column.key,
 					defaultSortDirection: 'asc',
@@ -418,7 +616,7 @@
 				render(value, row) {
 					return renderCell(value, row, column);
 				}
-			};
+			});
 
 			if (Number(column.width || 0) > 0) {
 				gridColumn.width = Number(column.width);
@@ -426,6 +624,84 @@
 
 			return gridColumn;
 		});
+	}
+
+
+	function createClipboardRecord(row) {
+		const record = {};
+
+		REPORT_COLUMNS.forEach((column) => {
+			if (!column || !column.key) {
+				return;
+			}
+
+			record[column.key] = row ? row[column.key] : null;
+		});
+
+		Object.entries(row || {}).forEach(([key, value]) => {
+			if (String(key).startsWith('__') || Object.prototype.hasOwnProperty.call(record, key)) {
+				return;
+			}
+
+			record[key] = value;
+		});
+
+		return record;
+	}
+
+	async function writeClipboardText(text) {
+		if (navigator.clipboard && window.isSecureContext) {
+			await navigator.clipboard.writeText(text);
+			return;
+		}
+
+		const textarea = document.createElement('textarea');
+		textarea.value = text;
+		textarea.setAttribute('readonly', 'readonly');
+		textarea.style.position = 'fixed';
+		textarea.style.left = '-9999px';
+		document.body.appendChild(textarea);
+		textarea.select();
+
+		try {
+			document.execCommand('copy');
+		} finally {
+			document.body.removeChild(textarea);
+		}
+	}
+
+	async function copyPayloadToClipboard(payload) {
+		await writeClipboardText(JSON.stringify(payload, null, 2));
+	}
+
+	async function copyMatrixRow(row) {
+		if (!row) {
+			setLog('Kein Datensatz zum Kopieren vorhanden.');
+			return;
+		}
+
+		try {
+			await copyPayloadToClipboard(createClipboardRecord(row));
+			setLog('Datensatz ' + getText(row.__row_key, '') + ' wurde in die Zwischenablage kopiert.');
+		} catch (error) {
+			setLog('Datensatz konnte nicht kopiert werden: ' + getText(error && error.message, String(error)));
+		}
+	}
+
+	async function copySelectedMatrixRows(selectedRows) {
+		const rows = Array.isArray(selectedRows) ? selectedRows : [];
+
+		if (rows.length === 0) {
+			setLog('Keine ausgewählten Datensätze zum Kopieren vorhanden.');
+			return;
+		}
+
+		try {
+			await copyPayloadToClipboard(rows.map(createClipboardRecord));
+			setLog(String(rows.length) + ' ausgewählte Datensätze wurden in die Zwischenablage kopiert.');
+		} catch (error) {
+			setLog('Ausgewählte Datensätze konnten nicht kopiert werden: ' + getText(error && error.message, String(error)));
+		}
 	}
 
 	async function postJson(payload) {
@@ -630,10 +906,12 @@
 			sort: defaultSortKey ? { key: defaultSortKey, direction: defaultSortDirection } : null,
 			plugins: [
 				SearchPlugin,
-				FiltersPlugin,
+				CompactFiltersPlugin,
 				HeaderMenuPlugin,
 				InfoPlugin,
-				ColumnVisibilityPlugin,
+				SelectionPlugin,
+				RowActionsPlugin,
+				BulkActionsPlugin,
 				ResetPlugin,
 				SessionStoragePlugin,
 				RowDetailPlugin,
@@ -641,11 +919,70 @@
 			],
 			pluginOptions: {
 				search: { zone: 'topLine1', order: 10, label: 'Search', placeholder: 'Search matrix headlines' },
-				filters: { zone: 'topLine2', order: 10, stateKey: 'filters', showClearButton: true, clearLabel: 'Clear filters', fields: FILTER_FIELDS },
+				compactFilters: {
+					zone: 'topLine2',
+					order: 10,
+					stateKey: 'filters',
+					visibilityStateKey: 'filterVisibility',
+					showClearButton: true,
+					addLabel: '',
+					addPlaceholder: 'Filter wählen',
+					pickerWidth: 145,
+					pickerMinWidth: 145,
+					clearLabel: 'Filter löschen',
+					fields: buildGridFilterFields(FILTER_FIELDS),
+					initialValues: FILTER_INITIAL_VALUES
+				},
 				headerMenu: { showSortActions: true, showClearSortAction: true, showHideColumnAction: true },
-				columnVisibility: { zone: '' },
-				reset: { zone: 'topLine1', order: 20, label: 'Reset', sections: ['query', 'filters', 'columns', 'detailView'] },
-				sessionStorage: { key: `vizion-matrix-report-${REPORT_CONFIG?.report || 'report'}`, sections: ['query', 'filters', 'columns', 'detailView'] },
+				selection: {
+					rowIdKey: '__row_key'
+				},
+				bulkActions: {
+					zone: 'topLine1',
+					order: 30,
+					rowIdKey: '__row_key',
+					selectedLabel: 'Ausgewählt',
+					emptyText: 'Keine Auswahl',
+					items: [
+						{
+							key: 'copy-selected-clipboard',
+							label: 'Auswahl kopieren',
+							onClick(context) {
+								copySelectedMatrixRows(context.selectedRows || []);
+							}
+						},
+						{
+							key: 'clear-selection',
+							label: 'Auswahl löschen',
+							command: 'clearSelection'
+						}
+					]
+				},
+				rowActions: {
+					headerMenu: {
+						enabled: true,
+						buttonLabel: '...',
+						items: [
+							{
+								type: 'columnVisibility',
+								label: 'Spalten',
+								showReset: true,
+								resetLabel: 'Spalten zurücksetzen'
+							}
+						]
+					},
+					items: [
+						{
+							key: 'copy-clipboard',
+							label: 'In Zwischenablage kopieren',
+							onClick(context) {
+								copyMatrixRow(context.row);
+							}
+						}
+					]
+				},
+				reset: { zone: 'topLine1', order: 40, label: 'Reset', sections: ['query', 'filters', 'filterVisibility', 'columns', 'selection', 'detailView'] },
+				sessionStorage: { key: 'vizion-matrix-report-' + (REPORT_CONFIG?.report || 'report') + '-' + FILTER_STORAGE_SIGNATURE, sections: ['query', 'filters', 'filterVisibility', 'columns', 'selection', 'detailView'] },
 				info: { zone: 'statusZone', order: 10, displayMode: 'loaded' },
 				rowDetail: {
 					rowIdKey: '__row_key',
@@ -662,12 +999,12 @@
 			columns: buildColumns(REPORT_COLUMNS)
 		});
 
-		grid.on('data:appended', ({ appendedCount, totalLoaded }) => setLog(`Loaded ${appendedCount} more rows. ${totalLoaded} rows are currently loaded.`));
+		grid.on('data:appended', ({ appendedCount, totalLoaded }) => setLog('Loaded ' + appendedCount + ' more rows. ' + totalLoaded + ' rows are currently loaded.'));
 		grid.on('detail:changed', (payload = {}) => {
-			if (payload.rowId) setLog(`Opened matrix detail for ${payload.rowId}`);
+			if (payload.rowId) setLog('Opened matrix detail for ' + payload.rowId);
 		});
 
 		await grid.init();
-		setLog(`Initial batch loaded. Scroll to append the next ${BATCH_SIZE} rows automatically.`);
+		setLog('Initial batch loaded. Scroll to append the next ' + BATCH_SIZE + ' rows automatically.');
 	})();
 </script>

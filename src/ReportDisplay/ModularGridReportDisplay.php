@@ -25,6 +25,7 @@ use Base3\LinkTarget\Api\ILinkTargetService;
 use Base3\Logger\Api\ILogger;
 use ResourceFoundation\Api\IQueryService;
 use ResourceFoundation\Dto\QueryResult;
+use Vizion\Api\IReportFilterService;
 
 class ModularGridReportDisplay implements IDisplay {
 
@@ -38,7 +39,8 @@ class ModularGridReportDisplay implements IDisplay {
 		private readonly IRequest $request,
 		private readonly IQueryService $reportqueryservice,
 		private readonly ILogger $logger,
-		private readonly ILinkTargetService $linkTargetService
+		private readonly ILinkTargetService $linkTargetService,
+		private readonly IReportFilterService $reportFilterService
 	) {}
 
 	public static function getName(): string {
@@ -107,7 +109,7 @@ class ModularGridReportDisplay implements IDisplay {
 				continue;
 			}
 
-			$row['__row_key'] = 'row-' . (string) ($offset + $index + 1);
+			$row['__row_key'] = $this->buildRowKey($row, $offset + $index + 1);
 			$rows[] = $row;
 		}
 
@@ -128,13 +130,46 @@ class ModularGridReportDisplay implements IDisplay {
 		];
 	}
 
+
+	/**
+	 * @param array<string, mixed> $row
+	 */
+	private function buildRowKey(array $row, int $fallback): string {
+		$normalized = [];
+
+		foreach($row as $key => $value) {
+			$key = (string) $key;
+
+			if(str_starts_with($key, '__')) {
+				continue;
+			}
+
+			if(is_scalar($value) || $value === null) {
+				$normalized[$key] = $value;
+				continue;
+			}
+
+			$normalized[$key] = json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+		}
+
+		ksort($normalized);
+		$encoded = json_encode($normalized, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+
+		if(!is_string($encoded) || $encoded === '') {
+			$encoded = 'fallback-' . (string) $fallback;
+		}
+
+		return 'report-row-' . substr(sha1($encoded), 0, 20);
+	}
+
 	private function getHtmlOutput(): string {
 		$this->view->setPath(DIR_PLUGIN . 'Vizion');
 		$this->view->setTemplate('ReportDisplay/ModularGridReportDisplay.php');
 
 		$fields = $this->getFields();
 		$columns = $this->buildColumns($fields);
-		$filterFields = $this->buildFilterFields($fields);
+		$filterFields = $this->reportFilterService->buildGridFilterFields($fields);
+		$filterInitialValues = $this->reportFilterService->buildInitialFilterValues($fields);
 		$basePath = $this->getBasePath();
 
 		$report = $this->config['report'] ?? '';
@@ -151,6 +186,7 @@ class ModularGridReportDisplay implements IDisplay {
 		$this->view->assign('ajaxUrl', $ajaxUrl);
 		$this->view->assign('columns', $columns);
 		$this->view->assign('filterFields', $filterFields);
+		$this->view->assign('filterInitialValues', $filterInitialValues);
 		$this->view->assign('config', $this->config ?? []);
 		$this->view->assign('modulargridCssUrl', $basePath . '/components/Base3/ClientStack/modulargrid/styles/modulargrid.css');
 		$this->view->assign('modulargridJsUrl', $basePath . '/components/Base3/ClientStack/modulargrid/index.js');
@@ -177,7 +213,7 @@ class ModularGridReportDisplay implements IDisplay {
 		}
 
 		$sort = $this->normalizeSort($payload['sort'] ?? null);
-		$filters = $this->normalizeFilters($payload['filters'] ?? null);
+		$filters = $this->reportFilterService->normalizeFilters($payload['filters'] ?? null, $this->getFields());
 
 		return [
 			'page' => $page,
@@ -234,42 +270,8 @@ class ModularGridReportDisplay implements IDisplay {
 	}
 
 	/**
-	 * @param mixed $filtersPayload
-	 * @return array<string, string>
-	 */
-	private function normalizeFilters(mixed $filtersPayload): array {
-		$result = [];
-
-		if(!is_array($filtersPayload)) {
-			return $result;
-		}
-
-		$fieldDefs = $this->buildFieldDefs($this->getFields());
-
-		foreach($filtersPayload as $alias => $value) {
-			if(!is_string($alias) || !isset($fieldDefs[$alias])) {
-				continue;
-			}
-
-			if(!is_scalar($value)) {
-				continue;
-			}
-
-			$value = trim((string) $value);
-
-			if($value === '') {
-				continue;
-			}
-
-			$result[$alias] = $value;
-		}
-
-		return $result;
-	}
-
-	/**
 	 * @param array<string, mixed> $fieldDefs
-	 * @param array<string, string> $filters
+	 * @param array<string, mixed> $filters
 	 * @return array<string, mixed>
 	 */
 	private function buildBaseQuery(array $fieldDefs, string $search, array $filters): array {
@@ -302,16 +304,10 @@ class ModularGridReportDisplay implements IDisplay {
 			}
 		}
 
-		foreach($filters as $alias => $value) {
-			if(!isset($fieldDefs[$alias])) {
-				continue;
-			}
+		$filterWhere = $this->reportFilterService->buildFilterWhere($filters, $this->getFields(), $fieldDefs);
 
-			$whereParams[] = [
-				'type' => 'op',
-				'operator' => 'LIKE',
-				'params' => [$fieldDefs[$alias], '%' . $value . '%']
-			];
+		if($filterWhere !== null) {
+			$whereParams[] = $filterWhere;
 		}
 
 		if(count($whereParams) === 1) {
@@ -485,108 +481,6 @@ class ModularGridReportDisplay implements IDisplay {
 		}
 
 		return $columns;
-	}
-
-	/**
-	 * @param array<int, array<string, mixed>> $fields
-	 * @return array<int, array<string, mixed>>
-	 */
-	private function buildFilterFields(array $fields): array {
-		$filterFields = [];
-
-		foreach($fields as $field) {
-			if(!isset($field['alias'])) {
-				continue;
-			}
-
-			$config = isset($field['config']) && is_array($field['config']) ? $field['config'] : [];
-
-			if(($config['filter'] ?? false) !== true) {
-				continue;
-			}
-
-			$filterFields[] = $this->buildFilterField($field);
-		}
-
-		if(count($filterFields) > 0) {
-			return $filterFields;
-		}
-
-		foreach($fields as $field) {
-			if(count($filterFields) >= 5) {
-				break;
-			}
-
-			if(!isset($field['alias'])) {
-				continue;
-			}
-
-			$config = isset($field['config']) && is_array($field['config']) ? $field['config'] : [];
-
-			if(($config['visible'] ?? true) === false) {
-				continue;
-			}
-
-			$filterFields[] = $this->buildFilterField($field);
-		}
-
-		return $filterFields;
-	}
-
-	/**
-	 * @param array<string, mixed> $field
-	 * @return array<string, mixed>
-	 */
-	private function buildFilterField(array $field): array {
-		$config = isset($field['config']) && is_array($field['config']) ? $field['config'] : [];
-		$alias = (string) ($field['alias'] ?? '');
-
-		$filterField = [
-			'key' => $alias,
-			'label' => (string) ($config['label'] ?? $alias),
-			'type' => (string) ($config['filterType'] ?? 'text'),
-			'placeholder' => (string) ($config['filterPlaceholder'] ?? ($config['label'] ?? $alias)),
-			'width' => isset($config['filterWidth']) && is_numeric($config['filterWidth'])
-				? (int) $config['filterWidth']
-				: 140,
-		];
-
-		if(isset($config['filterOptions']) && is_array($config['filterOptions'])) {
-			$filterField['type'] = 'select';
-			$filterField['options'] = $this->normalizeFilterOptions($config['filterOptions']);
-		}
-
-		return $filterField;
-	}
-
-	/**
-	 * @param array<mixed> $options
-	 * @return array<int, array<string, string>>
-	 */
-	private function normalizeFilterOptions(array $options): array {
-		$result = [
-			[
-				'value' => '',
-				'label' => 'All',
-			]
-		];
-
-		foreach($options as $key => $value) {
-			if(is_array($value)) {
-				$result[] = [
-					'value' => (string) ($value['value'] ?? ''),
-					'label' => (string) ($value['label'] ?? ($value['value'] ?? '')),
-				];
-				continue;
-			}
-
-			$result[] = [
-				'value' => is_string($key) ? $key : (string) $value,
-				'label' => (string) $value,
-			];
-		}
-
-		return $result;
 	}
 
 	private function getFieldSortType(string $alias): string {

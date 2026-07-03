@@ -27,6 +27,8 @@ use Vizion\Api\IReportConfigProvider;
 use Vizion\Api\IReportDisplay;
 use Vizion\Service\StaticReportConfigProvider;
 use Vizion\ReportDisplay\GeneralReportDisplay;
+use Vizion\Api\IReportFilterService;
+use Vizion\Filter\ReportFilterService;
 
 class VizionPlugin implements IPlugin, ICheck {
 
@@ -47,6 +49,11 @@ class VizionPlugin implements IPlugin, ICheck {
 			->set(
 				IReportConfigProvider::class,
 				fn() => new StaticReportConfigProvider(),
+				IContainer::SHARED | IContainer::NOOVERWRITE)
+
+			->set(
+				IReportFilterService::class,
+				fn() => new ReportFilterService(),
 				IContainer::SHARED | IContainer::NOOVERWRITE)
 
 			->set(
