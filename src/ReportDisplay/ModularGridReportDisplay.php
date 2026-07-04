@@ -188,6 +188,11 @@ class ModularGridReportDisplay implements IDisplay {
 
 		$fields = $this->getFields();
 		$columns = $this->reportCellRendererService->buildGridColumns($fields);
+		$rendererAssetUrls = array_map(
+			fn(string $path): string => $this->assetResolver->resolve($path),
+			$this->reportCellRendererService->collectGridRendererAssetPaths($columns)
+		);
+		$columns = $this->reportCellRendererService->stripInternalGridColumnMetadata($columns);
 		$filterFields = $this->reportFilterService->buildGridFilterFields($fields);
 		$filterInitialValues = $this->reportFilterService->buildInitialFilterValues($fields);
 		$report = $this->config['report'] ?? '';
@@ -203,6 +208,7 @@ class ModularGridReportDisplay implements IDisplay {
 
 		$this->view->assign('ajaxUrl', $ajaxUrl);
 		$this->view->assign('columns', $columns);
+		$this->view->assign('rendererAssetUrls', $rendererAssetUrls);
 		$this->view->assign('filterFields', $filterFields);
 		$this->view->assign('filterInitialValues', $filterInitialValues);
 		$this->view->assign('config', $this->config ?? []);

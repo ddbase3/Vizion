@@ -8,11 +8,13 @@ use Vizion\Api\IReportCellRendererService;
 final class ReportCellRendererService implements IReportCellRendererService {
 
 	private ReportValueFormatterRegistry $formatterRegistry;
-	private ReportCellRendererRegistry $rendererRegistry;
+	private ReportValueRendererRegistry $valueRendererRegistry;
+	private ReportColumnRendererRegistry $columnRendererRegistry;
 
 	public function __construct(IClassMap $classMap) {
 		$this->formatterRegistry = new ReportValueFormatterRegistry($classMap);
-		$this->rendererRegistry = new ReportCellRendererRegistry($classMap);
+		$this->valueRendererRegistry = new ReportValueRendererRegistry($classMap);
+		$this->columnRendererRegistry = new ReportColumnRendererRegistry($classMap);
 	}
 
 	public function buildGridColumns(array $fields): array {
@@ -29,23 +31,74 @@ final class ReportCellRendererService implements IReportCellRendererService {
 		return $columns;
 	}
 
+	public function collectGridRendererAssetPaths(array $columns): array {
+		$result = [];
+
+		foreach($columns as $column) {
+			$paths = $column['_rendererAssetPaths'] ?? [];
+
+			if(!is_array($paths)) {
+				continue;
+			}
+
+			foreach($paths as $path) {
+				if(!is_scalar($path)) {
+					continue;
+				}
+
+				$path = trim((string) $path);
+
+				if($path !== '') {
+					$result[$path] = $path;
+				}
+			}
+		}
+
+		return array_values($result);
+	}
+
+	public function stripInternalGridColumnMetadata(array $columns): array {
+		foreach($columns as $index => $column) {
+			if(!is_array($column)) {
+				continue;
+			}
+
+			unset($column['_rendererAssetPaths']);
+			$columns[$index] = $column;
+		}
+
+		return $columns;
+	}
+
 	/** @param array<string,mixed> $field @return array<string,mixed> */
 	private function buildGridColumn(array $field): array {
 		$config = isset($field['config']) && is_array($field['config']) ? $field['config'] : [];
 		$alias = (string) $field['alias'];
 		$type = (string) ($config['type'] ?? 'string');
-		$rendererConfig = $this->normalizeConfig($config['renderer'] ?? null, $this->getDefaultRendererType($type));
-		$formatterConfig = $this->normalizeConfig($config['formatter'] ?? null, $this->getDefaultFormatterType($type, $rendererConfig));
+		$formatterConfig = $this->normalizeConfig($config['formatter'] ?? null, $this->getDefaultFormatterType($type));
+		$valueRendererConfig = $this->normalizeConfig($config['valueRenderer'] ?? null, $this->getDefaultValueRendererType($type));
+		$columnRendererConfig = $this->normalizeConfig($config['columnRenderer'] ?? null, 'value');
 		$formatter = $this->formatterRegistry->getFormatter((string) ($formatterConfig['type'] ?? 'text'));
-		$renderer = $this->rendererRegistry->getRenderer((string) ($rendererConfig['type'] ?? 'text'));
+		$valueRenderer = $this->valueRendererRegistry->getRenderer((string) ($valueRendererConfig['type'] ?? 'text'));
+		$columnRenderer = $this->columnRendererRegistry->getRenderer((string) ($columnRendererConfig['type'] ?? 'value'));
+		$assetPaths = array_merge(
+			$valueRenderer->getAssetPaths($valueRendererConfig),
+			$columnRenderer->getAssetPaths($columnRendererConfig)
+		);
 
 		$column = [
 			'key' => $alias,
 			'label' => (string) ($config['label'] ?? $alias),
 			'visible' => $config['visible'] ?? true,
 			'type' => $type,
-			'rendererKey' => $renderer->getClientRendererKey($rendererConfig),
 			'formatter' => $formatter->buildClientConfig($field, $formatterConfig),
+			'valueRendererKey' => $valueRenderer->getClientRendererKey($valueRendererConfig),
+			'valueRendererType' => (string) ($valueRendererConfig['type'] ?? $valueRenderer->getRendererType()),
+			'valueRendererConfig' => $this->stripType($valueRendererConfig),
+			'columnRendererKey' => $columnRenderer->getClientRendererKey($columnRendererConfig),
+			'columnRendererType' => (string) ($columnRendererConfig['type'] ?? $columnRenderer->getRendererType()),
+			'columnRendererConfig' => $this->stripType($columnRendererConfig),
+			'_rendererAssetPaths' => array_values(array_unique(array_filter($assetPaths, static fn($path): bool => is_string($path) && trim($path) !== '')))
 		];
 
 		if(isset($config['width']) && is_numeric($config['width'])) {
@@ -56,7 +109,14 @@ final class ReportCellRendererService implements IReportCellRendererService {
 			$column['lines'] = max(1, (int) $config['lines']);
 		}
 
-		return $renderer->configureColumn($column, $field, $rendererConfig);
+		if(in_array(strtolower($type), ['json', 'code'], true)) {
+			$column['monospace'] = true;
+		}
+
+		$column = $valueRenderer->configureValue($column, $field, $valueRendererConfig);
+		$column = $columnRenderer->configureColumn($column, $field, $columnRendererConfig);
+
+		return $column;
 	}
 
 	/** @return array<string,mixed> */
@@ -73,14 +133,19 @@ final class ReportCellRendererService implements IReportCellRendererService {
 			$result['type'] = $defaultType;
 		}
 
+		$result['type'] = strtolower(trim((string) $result['type']));
+
 		return $result;
 	}
 
-	private function getDefaultFormatterType(string $fieldType, array $rendererConfig): string {
-		if(isset($rendererConfig['formatter']) && is_string($rendererConfig['formatter'])) {
-			return $rendererConfig['formatter'];
-		}
+	/** @param array<string,mixed> $config @return array<string,mixed> */
+	private function stripType(array $config): array {
+		unset($config['type']);
 
+		return $config;
+	}
+
+	private function getDefaultFormatterType(string $fieldType): string {
 		return match(strtolower($fieldType)) {
 			'int', 'integer', 'float', 'decimal', 'number' => 'number',
 			'date' => 'date',
@@ -89,12 +154,8 @@ final class ReportCellRendererService implements IReportCellRendererService {
 		};
 	}
 
-	private function getDefaultRendererType(string $fieldType): string {
+	private function getDefaultValueRendererType(string $fieldType): string {
 		return match(strtolower($fieldType)) {
-			'int', 'integer', 'float', 'decimal', 'number' => 'number',
-			'date', 'datetime' => 'date',
-			'json' => 'json',
-			'code' => 'json',
 			default => 'text'
 		};
 	}

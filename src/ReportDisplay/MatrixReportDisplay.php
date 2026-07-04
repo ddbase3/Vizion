@@ -62,13 +62,21 @@ final class MatrixReportDisplay implements IDisplay {
 
 		$this->view->setPath(DIR_PLUGIN . 'Vizion');
 		$this->view->setTemplate('ReportDisplay/MatrixReportDisplay.php');
+		$columns = $this->reportCellRendererService->buildGridColumns($this->getFields());
+		$rendererAssetUrls = array_map(
+			fn(string $path): string => $this->assetResolver->resolve($path),
+			$this->reportCellRendererService->collectGridRendererAssetPaths($columns)
+		);
+		$columns = $this->reportCellRendererService->stripInternalGridColumnMetadata($columns);
+
 		$this->view->assign('ajaxUrl', $this->linkTargetService->getLink([
 			'name' => self::getName(),
 			'out' => 'json'
 		], [
 			'report' => $report
 		]));
-		$this->view->assign('columns', $this->reportCellRendererService->buildGridColumns($this->getFields()));
+		$this->view->assign('columns', $columns);
+		$this->view->assign('rendererAssetUrls', $rendererAssetUrls);
 		$this->view->assign('filterFields', $this->reportFilterService->buildGridFilterFields($this->getFields()));
 		$this->view->assign('filterInitialValues', $this->reportFilterService->buildInitialFilterValues($this->getFields()));
 		$this->view->assign('config', $config);

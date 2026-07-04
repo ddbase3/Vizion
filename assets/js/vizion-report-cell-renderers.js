@@ -9,7 +9,7 @@ function getText(value, placeholder = '—') {
 function escapeRegexChar(value) {
 	const specialChars = '.*+?^$()|[]\\{}';
 
-	return String(value).split('').map((char) => {
+	return String(value).split('').map(function(char) {
 		return specialChars.includes(char) ? '\\' + char : char;
 	}).join('');
 }
@@ -33,7 +33,9 @@ function parseDateParts(value, format) {
 	const text = String(value).trim();
 
 	while (index < format.length) {
-		const token = tokens.find((candidate) => format.slice(index).startsWith(candidate));
+		const token = tokens.find(function(candidate) {
+			return format.slice(index).startsWith(candidate);
+		});
 
 		if (token) {
 			pattern += tokenPatterns[token];
@@ -56,7 +58,7 @@ function parseDateParts(value, format) {
 
 	const parts = { YYYY: '1970', MM: '01', DD: '01', HH: '00', mm: '00' };
 
-	tokenOrder.forEach((token, tokenIndex) => {
+	tokenOrder.forEach(function(token, tokenIndex) {
 		parts[token] = match[tokenIndex + 1];
 	});
 
@@ -99,13 +101,25 @@ function formatDate(value, formatter) {
 function formatEnum(value, formatter) {
 	const valueText = String(value ?? '');
 	const options = Array.isArray(formatter.options) ? formatter.options : [];
-	const match = options.find((entry) => String(entry && typeof entry === 'object' ? entry.value : entry) === valueText);
+	const match = options.find(function(entry) {
+		return String(entry && typeof entry === 'object' ? entry.value : entry) === valueText;
+	});
 
 	if (!match) {
 		return getText(value);
 	}
 
 	return String(match && typeof match === 'object' ? (match.label ?? match.value ?? '') : match);
+}
+
+function extractEmail(value) {
+	if (value === null || value === undefined || typeof value === 'object') {
+		return '';
+	}
+
+	const match = String(value).match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
+
+	return match ? match[0] : '';
 }
 
 function formatValue(value, column = {}) {
@@ -115,6 +129,10 @@ function formatValue(value, column = {}) {
 
 	const formatter = column.formatter || {};
 	const formatterType = String(formatter.type || column.type || '').toLowerCase();
+
+	if (formatterType === 'email') {
+		return getText(value, formatter.placeholder || '—');
+	}
 
 	if (formatterType === 'enum') {
 		return formatEnum(value, formatter);
@@ -150,17 +168,44 @@ function formatValue(value, column = {}) {
 	return String(value);
 }
 
-function createTextCell(value, row, column) {
+function getRowValue(row, key, currentValue) {
+	if (key === 'value') {
+		return currentValue;
+	}
+
+	if (!row || typeof row !== 'object') {
+		return undefined;
+	}
+
+	if (Object.prototype.hasOwnProperty.call(row, key)) {
+		return row[key];
+	}
+
+	const parts = String(key).split('.');
+	let current = row;
+
+	for (const part of parts) {
+		if (!part || !current || typeof current !== 'object' || !Object.prototype.hasOwnProperty.call(current, part)) {
+			return undefined;
+		}
+
+		current = current[part];
+	}
+
+	return current;
+}
+
+function createTextElement(text, column = {}) {
 	const wrapper = document.createElement('span');
 	const lines = Number(column.lines || 0);
 
 	wrapper.className = 'vizion-modulargrid-cell';
 
-	if (column.monospace || column.rendererKey === 'vizion.json') {
+	if (column.monospace) {
 		wrapper.classList.add('vizion-modulargrid-cell-mono');
 	}
 
-	wrapper.textContent = formatValue(value, column);
+	wrapper.textContent = text;
 
 	if (lines > 0) {
 		wrapper.style.display = '-webkit-box';
@@ -172,32 +217,102 @@ function createTextCell(value, row, column) {
 	return wrapper;
 }
 
-function createEmailLinkCell(value, row, column) {
-	if (value === null || value === undefined || value === '') {
-		return createTextCell(value, row, column);
+function createTextValue(context) {
+	return createTextElement(formatValue(context.value, context.column), context.column);
+}
+
+function createEmailLinkValue(context) {
+	const email = extractEmail(context.value);
+
+	if (!email) {
+		return createTextValue(context);
 	}
 
 	const link = document.createElement('a');
-	const text = String(value);
-	link.className = 'vizion-modulargrid-cell';
-	link.href = 'mailto:' + encodeURIComponent(text);
-	link.textContent = text;
+	link.className = 'vizion-modulargrid-cell vizion-modulargrid-cell-email-link';
+	link.href = 'mailto:' + email;
+	link.textContent = formatValue(context.value, context.column);
 
 	return link;
 }
 
-function renderCell(value, row, column = {}) {
-	const rendererKey = String(column.rendererKey || 'vizion.text');
+function createValueColumn(context) {
+	return context.renderValue(context.value, context.row, context.column);
+}
 
-	if (rendererKey === 'vizion.emailLink') {
-		return createEmailLinkCell(value, row, column);
+const valueRenderers = new Map();
+const columnRenderers = new Map();
+const rowRenderers = new Map();
+
+function normalizeKey(key) {
+	return String(key || '').trim();
+}
+
+function registerValueRenderer(key, renderer) {
+	key = normalizeKey(key);
+
+	if (key && typeof renderer === 'function') {
+		valueRenderers.set(key, renderer);
 	}
+}
 
-	return createTextCell(value, row, column);
+function registerColumnRenderer(key, renderer) {
+	key = normalizeKey(key);
+
+	if (key && typeof renderer === 'function') {
+		columnRenderers.set(key, renderer);
+	}
+}
+
+function registerRowRenderer(key, renderer) {
+	key = normalizeKey(key);
+
+	if (key && typeof renderer === 'function') {
+		rowRenderers.set(key, renderer);
+	}
+}
+
+function getValueRenderer(key) {
+	return valueRenderers.get(normalizeKey(key)) || valueRenderers.get('vizion.value.text');
+}
+
+function getColumnRenderer(key) {
+	return columnRenderers.get(normalizeKey(key)) || columnRenderers.get('vizion.column.value');
+}
+
+function renderValue(value, row, column = {}) {
+	const renderer = getValueRenderer(column.valueRendererKey || 'vizion.value.text');
+
+	return renderer({
+		value,
+		row,
+		column,
+		config: column.valueRendererConfig || {},
+		formatValue,
+		getRowValue,
+		createTextElement,
+		createTextValue
+	});
+}
+
+function renderCell(value, row, column = {}) {
+	const renderer = getColumnRenderer(column.columnRendererKey || 'vizion.column.value');
+
+	return renderer({
+		value,
+		row,
+		column,
+		config: column.columnRendererConfig || {},
+		renderValue,
+		formatValue,
+		getRowValue,
+		createTextElement,
+		createTextValue
+	});
 }
 
 function buildColumns(columns) {
-	return (columns || []).map((column) => {
+	return (columns || []).map(function(column) {
 		const gridColumn = Object.assign({}, column, {
 			headerMenu: {
 				defaultSortKey: column.key,
@@ -222,10 +337,21 @@ function buildColumns(columns) {
 	});
 }
 
+registerValueRenderer('vizion.value.text', createTextValue);
+registerValueRenderer('vizion.value.emailLink', createEmailLinkValue);
+registerColumnRenderer('vizion.column.value', createValueColumn);
+
 export function createReportCellRendererTools() {
 	return {
 		buildColumns,
 		formatValue,
-		renderCell
+		renderCell,
+		renderValue,
+		registerValueRenderer,
+		registerColumnRenderer,
+		registerRowRenderer,
+		getRowValue,
+		createTextElement,
+		createTextValue
 	};
 }
