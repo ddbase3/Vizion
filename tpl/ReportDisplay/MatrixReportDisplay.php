@@ -5,8 +5,20 @@
 			JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR
 		);
 	};
+
+	$chronoPickerCssUrl = str_replace(
+		'/modulargrid/styles/modulargrid.css',
+		'/chronopicker/styles/chronopicker.css',
+		(string) $this->_['modulargridCssUrl']
+	);
+	$chronoPickerJsUrl = str_replace(
+		'/modulargrid/index.js',
+		'/chronopicker/index.js',
+		(string) $this->_['modulargridJsUrl']
+	);
 ?>
 <link rel="stylesheet" href="<?php echo htmlspecialchars((string) $this->_['modulargridCssUrl'], ENT_QUOTES); ?>" />
+<link rel="stylesheet" href="<?php echo htmlspecialchars($chronoPickerCssUrl, ENT_QUOTES); ?>" />
 
 <style>
 	.vizion-matrix-report-shell {
@@ -75,6 +87,24 @@
 
 	.vizion-matrix-report-grid .mg-compact-multiselect-summary {
 		max-width: 150px;
+	}
+
+	.mg-chrono-range {
+		display: inline-flex;
+		align-items: center;
+		gap: 4px;
+		min-width: 0;
+	}
+
+	.mg-chrono-range .mg-input {
+		width: 122px;
+		min-width: 0;
+	}
+
+	.mg-chrono-range-separator {
+		color: #777;
+		font-size: 12px;
+		line-height: 1;
 	}
 
 	.vizion-matrix-report-grid .mg-input,
@@ -322,6 +352,12 @@
 		SelectionPlugin,
 		SessionStoragePlugin
 	} from '<?php echo htmlspecialchars((string) $this->_['modulargridJsUrl'], ENT_QUOTES); ?>';
+
+	const chronoPickerModule = await import(new URL(<?php echo $json($chronoPickerJsUrl); ?>, document.baseURI).href);
+	const ChronoPicker = chronoPickerModule.ChronoPicker;
+	const DatePickerPlugin = chronoPickerModule.DatePickerPlugin;
+	const DateTimePlugin = chronoPickerModule.DateTimePlugin;
+	const KeyboardPlugin = chronoPickerModule.KeyboardPlugin;
 
 	const ENDPOINT_URL = <?php echo $json((string) $this->_['ajaxUrl']); ?>;
 	const GRID_SELECTOR = '#vizion-matrix-report';
@@ -576,21 +612,313 @@
 		return wrapper;
 	}
 
+	function getChronoMode(field) {
+		const explicitMode = String(field.mode || '').toLowerCase();
+
+		if (explicitMode === 'datetime') {
+			return 'datetime';
+		}
+
+		const valueType = String(field.valueType || field.type || '').toLowerCase();
+		return valueType === 'datetime' || valueType === 'datetimerange' ? 'datetime' : 'date';
+	}
+
+	function getChronoDisplayFormat(field) {
+		if (field.format) {
+			return String(field.format);
+		}
+
+		return getChronoMode(field) === 'datetime' ? 'YYYY-MM-DD HH:mm' : 'YYYY-MM-DD';
+	}
+
+	function getChronoValueFormat(field) {
+		if (field.valueFormat) {
+			return String(field.valueFormat);
+		}
+
+		if (field.submitFormat) {
+			return String(field.submitFormat);
+		}
+
+		if (field.storageFormat) {
+			return String(field.storageFormat);
+		}
+
+		if (field.queryFormat) {
+			return String(field.queryFormat);
+		}
+
+		return getChronoDisplayFormat(field);
+	}
+
+	function getChronoPlaceholder(field, part) {
+		if (part === 'from' && field.fromPlaceholder) {
+			return String(field.fromPlaceholder);
+		}
+
+		if (part === 'to' && field.toPlaceholder) {
+			return String(field.toPlaceholder);
+		}
+
+		if (field.placeholder) {
+			return String(field.placeholder);
+		}
+
+		return getChronoDisplayFormat(field);
+	}
+
+	function escapeRegexChar(value) {
+		const specialChars = '.*+?^$()|[]\\{}';
+
+		return String(value).split('').map((char) => {
+			return specialChars.includes(char) ? '\\' + char : char;
+		}).join('');
+	}
+
+	function parseChronoParts(value, format) {
+		if (value === null || value === undefined || value === '') {
+			return null;
+		}
+
+		const text = String(value).trim();
+		const tokens = ['YYYY', 'MM', 'DD', 'HH', 'mm'];
+		const tokenPatterns = {
+			YYYY: '(\\d{4})',
+			MM: '(\\d{2})',
+			DD: '(\\d{2})',
+			HH: '(\\d{2})',
+			mm: '(\\d{2})'
+		};
+		const tokenOrder = [];
+		let pattern = '^';
+		let index = 0;
+
+		while (index < format.length) {
+			const token = tokens.find((candidate) => format.slice(index).startsWith(candidate));
+
+			if (token) {
+				pattern += tokenPatterns[token];
+				tokenOrder.push(token);
+				index += token.length;
+				continue;
+			}
+
+			pattern += escapeRegexChar(format[index]);
+			index += 1;
+		}
+
+		pattern += '$';
+
+		const match = new RegExp(pattern).exec(text);
+
+		if (!match) {
+			return null;
+		}
+
+		const parts = {
+			YYYY: '1970',
+			MM: '01',
+			DD: '01',
+			HH: '00',
+			mm: '00'
+		};
+
+		tokenOrder.forEach((token, tokenIndex) => {
+			parts[token] = match[tokenIndex + 1];
+		});
+
+		const year = Number(parts.YYYY);
+		const month = Number(parts.MM);
+		const day = Number(parts.DD);
+		const hour = Number(parts.HH);
+		const minute = Number(parts.mm);
+		const date = new Date(year, month - 1, day, hour, minute, 0, 0);
+
+		if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day || date.getHours() !== hour || date.getMinutes() !== minute) {
+			return null;
+		}
+
+		return parts;
+	}
+
+	function formatChronoParts(parts, format) {
+		return String(format)
+			.replaceAll('YYYY', parts.YYYY)
+			.replaceAll('MM', parts.MM)
+			.replaceAll('DD', parts.DD)
+			.replaceAll('HH', parts.HH)
+			.replaceAll('mm', parts.mm);
+	}
+
+	function convertChronoValue(value, sourceFormat, targetFormat) {
+		if (value === null || value === undefined || value === '') {
+			return '';
+		}
+
+		if (sourceFormat === targetFormat) {
+			return String(value);
+		}
+
+		const parts = parseChronoParts(value, sourceFormat);
+
+		if (!parts) {
+			return String(value);
+		}
+
+		return formatChronoParts(parts, targetFormat);
+	}
+
+	function createChronoInput(api, part, value, commitValue) {
+		const input = document.createElement('input');
+		const mode = getChronoMode(api.field);
+		const displayFormat = getChronoDisplayFormat(api.field);
+		const valueFormat = getChronoValueFormat(api.field);
+		const displayValue = convertChronoValue(value || '', valueFormat, displayFormat);
+		let lastCommittedValue = value || '';
+
+		input.type = 'text';
+		input.className = 'mg-input mg-compact-filter-control cp-input-bound';
+		input.placeholder = getChronoPlaceholder(api.field, part);
+		input.value = displayValue;
+		input.name = api.field.key + '_' + part;
+		input.dataset.key = api.field.key;
+		input.dataset.filterKey = api.field.key;
+		input.dataset.mgFocusKey = 'filter-filters-' + api.field.key + '-' + part;
+
+		if (api.field.inputWidth) {
+			input.style.width = String(api.field.inputWidth) + 'px';
+		}
+
+		function commit(nextDisplayValue) {
+			const nextValue = convertChronoValue(nextDisplayValue || '', displayFormat, valueFormat);
+
+			if (nextValue === lastCommittedValue) {
+				return;
+			}
+
+			lastCommittedValue = nextValue;
+			commitValue(nextValue);
+		}
+
+		const picker = new ChronoPicker(input, {
+			mode,
+			displayMode: 'popover',
+			value: input.value || '',
+			format: displayFormat,
+			min: api.field.min || null,
+			max: api.field.max || null,
+			minuteStep: Number(api.field.minuteStep || 1),
+			closeOnSelect: Object.prototype.hasOwnProperty.call(api.field, 'closeOnSelect') ? api.field.closeOnSelect === true : mode === 'date',
+			plugins: [
+				DatePickerPlugin,
+				DateTimePlugin,
+				KeyboardPlugin
+			],
+			onChange(nextDisplayValue) {
+				input.value = nextDisplayValue || '';
+				commit(input.value);
+			}
+		});
+		const changeHandler = () => commit(input.value || '');
+		const keydownHandler = (event) => {
+			if (event.key === 'Enter') {
+				commit(input.value || '');
+			}
+		};
+
+		input.addEventListener('change', changeHandler);
+		input.addEventListener('keydown', keydownHandler);
+		picker.init();
+
+		return {
+			input,
+			destroy() {
+				input.removeEventListener('change', changeHandler);
+				input.removeEventListener('keydown', keydownHandler);
+
+				if (typeof picker.destroy === 'function') {
+					picker.destroy();
+				}
+			}
+		};
+	}
+
+	function renderChronoDateFilter(api) {
+		const control = createChronoInput(api, 'value', api.value || '', (nextValue) => {
+			api.setValue(nextValue);
+		});
+
+		if (api.field.width && !api.field.inputWidth) {
+			control.input.style.width = String(api.field.width) + 'px';
+		}
+
+		return {
+			element: control.input,
+			destroy() {
+				control.destroy();
+			}
+		};
+	}
+
+	function renderChronoDateRangeFilter(api) {
+		const wrapper = document.createElement('div');
+		let value = api.value && typeof api.value === 'object' ? Object.assign({}, api.value) : { from: '', to: '' };
+
+		wrapper.className = 'mg-chrono-range mg-compact-filter-control';
+
+		if (api.field.width) {
+			wrapper.style.width = String(api.field.width) + 'px';
+		}
+
+		function setPart(part, partValue) {
+			const nextValue = Object.assign({}, value);
+			nextValue[part] = partValue || '';
+			value = nextValue;
+			api.setValue({
+				from: value.from || '',
+				to: value.to || ''
+			});
+		}
+
+		const fromControl = createChronoInput(api, 'from', value.from || '', (nextValue) => setPart('from', nextValue));
+		const toControl = createChronoInput(api, 'to', value.to || '', (nextValue) => setPart('to', nextValue));
+		const separator = document.createElement('span');
+		separator.className = 'mg-chrono-range-separator';
+		separator.textContent = '–';
+
+		wrapper.appendChild(fromControl.input);
+		wrapper.appendChild(separator);
+		wrapper.appendChild(toControl.input);
+
+		return {
+			element: wrapper,
+			destroy() {
+				fromControl.destroy();
+				toControl.destroy();
+			}
+		};
+	}
+
 	function buildGridFilterFields(fields) {
 		return (fields || []).map((field) => {
 			const nextField = Object.assign({}, field);
 			const type = String(field.type || '').toLowerCase();
+			const control = String(field.control || '').toLowerCase();
+			const useChronoPicker = control === 'chronopicker' || control === 'chrono';
+
+			if ((type === 'date' || type === 'datetime') && useChronoPicker) {
+				nextField.valueType = type;
+				nextField.renderControl = renderChronoDateFilter;
+			}
 
 			if (type === 'range') {
-				nextField.type = 'custom';
 				nextField.valueType = 'range';
 				nextField.renderControl = renderRangeFilter;
 			}
 
 			if (type === 'daterange' || type === 'datetimerange') {
-				nextField.type = 'custom';
 				nextField.valueType = type;
-				nextField.renderControl = renderDateRangeFilter;
+				nextField.renderControl = useChronoPicker ? renderChronoDateRangeFilter : renderDateRangeFilter;
 			}
 
 			return nextField;
