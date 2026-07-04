@@ -1,24 +1,16 @@
 <?php
+	$containerId = 'vizion_matrix_' . uniqid();
+	$gridId = $containerId . '_grid';
+	$logId = $containerId . '_log';
 	$json = static function($value): string {
 		return json_encode(
 			$value,
 			JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR
 		);
 	};
-
-	$chronoPickerCssUrl = str_replace(
-		'/modulargrid/styles/modulargrid.css',
-		'/chronopicker/styles/chronopicker.css',
-		(string) $this->_['modulargridCssUrl']
-	);
-	$chronoPickerJsUrl = str_replace(
-		'/modulargrid/index.js',
-		'/chronopicker/index.js',
-		(string) $this->_['modulargridJsUrl']
-	);
 ?>
 <link rel="stylesheet" href="<?php echo htmlspecialchars((string) $this->_['modulargridCssUrl'], ENT_QUOTES); ?>" />
-<link rel="stylesheet" href="<?php echo htmlspecialchars($chronoPickerCssUrl, ENT_QUOTES); ?>" />
+<link rel="stylesheet" href="<?php echo htmlspecialchars((string) $this->_['chronoPickerCssUrl'], ENT_QUOTES); ?>" />
 
 <style>
 	.vizion-matrix-report-shell {
@@ -329,10 +321,10 @@
 	}
 </style>
 
-<div class="vizion-matrix-report-shell">
+<div id="<?php echo htmlspecialchars($containerId, ENT_QUOTES); ?>" class="vizion-matrix-report-shell">
 	<div class="vizion-matrix-report-grid">
-		<div id="vizion-matrix-report"></div>
-		<div id="vizion-matrix-report-log" class="vizion-matrix-report-log"></div>
+		<div id="<?php echo htmlspecialchars($gridId, ENT_QUOTES); ?>"></div>
+		<div id="<?php echo htmlspecialchars($logId, ENT_QUOTES); ?>" class="vizion-matrix-report-log"></div>
 	</div>
 </div>
 
@@ -353,21 +345,25 @@
 		SessionStoragePlugin
 	} from '<?php echo htmlspecialchars((string) $this->_['modulargridJsUrl'], ENT_QUOTES); ?>';
 
-	const chronoPickerModule = await import(new URL(<?php echo $json($chronoPickerJsUrl); ?>, document.baseURI).href);
-	const ChronoPicker = chronoPickerModule.ChronoPicker;
-	const DatePickerPlugin = chronoPickerModule.DatePickerPlugin;
-	const DateTimePlugin = chronoPickerModule.DateTimePlugin;
-	const KeyboardPlugin = chronoPickerModule.KeyboardPlugin;
+	const chronoPickerModule = await import(new URL(<?php echo $json((string) $this->_['chronoPickerJsUrl']); ?>, document.baseURI).href);
+	const filterControlsModule = await import(new URL(<?php echo $json((string) $this->_['filterControlsJsUrl']); ?>, document.baseURI).href);
+	const cellRenderersModule = await import(new URL(<?php echo $json((string) $this->_['cellRenderersJsUrl']); ?>, document.baseURI).href);
+	const reportFilterTools = filterControlsModule.createReportFilterTools({
+		ChronoPicker: chronoPickerModule.ChronoPicker,
+		DatePickerPlugin: chronoPickerModule.DatePickerPlugin,
+		DateTimePlugin: chronoPickerModule.DateTimePlugin,
+		KeyboardPlugin: chronoPickerModule.KeyboardPlugin
+	});
+	const reportCellTools = cellRenderersModule.createReportCellRendererTools();
 
 	const ENDPOINT_URL = <?php echo $json((string) $this->_['ajaxUrl']); ?>;
-	const GRID_SELECTOR = '#vizion-matrix-report';
-	const LOG_SELECTOR = '#vizion-matrix-report-log';
+	const GRID_SELECTOR = <?php echo $json('#' . $gridId); ?>;
+	const LOG_SELECTOR = <?php echo $json('#' . $logId); ?>;
 	const REPORT_COLUMNS = <?php echo $json($this->_['columns']); ?>;
 	const FILTER_FIELDS = <?php echo $json($this->_['filterFields']); ?>;
 	const FILTER_INITIAL_VALUES = <?php echo $json($this->_['filterInitialValues']); ?>;
 	const REPORT_CONFIG = <?php echo $json($this->_['config']); ?>;
 	const BATCH_SIZE = Number(REPORT_CONFIG?.config?.pageSize || 50);
-
 
 	function createShortHash(value) {
 		const text = String(value || '');
@@ -382,10 +378,7 @@
 	}
 
 	function createFilterStorageSignature(fields, initialValues) {
-		return createShortHash(JSON.stringify({
-			fields: fields || [],
-			initialValues: initialValues || {}
-		}));
+		return createShortHash(JSON.stringify({ fields: fields || [], initialValues: initialValues || {} }));
 	}
 
 	const FILTER_STORAGE_SIGNATURE = createFilterStorageSignature(FILTER_FIELDS, FILTER_INITIAL_VALUES);
@@ -403,30 +396,19 @@
 
 	function setLog(message) {
 		const logElement = document.querySelector(LOG_SELECTOR);
-		if (logElement) {
-			logElement.innerHTML = '<strong>Last action:</strong> ' + escapeHtml(getText(message));
-		}
-	}
-
-	function escapeHtml(value) {
-		return String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+		if (!logElement) return;
+		logElement.innerHTML = '<strong>Last action:</strong> ' + message;
 	}
 
 	function getText(value, placeholder = '—') {
-		if (value === null || value === undefined || value === '') {
-			return placeholder;
-		}
+		if (value === null || value === undefined || value === '') return placeholder;
 		return String(value);
 	}
 
-	function createElement(tagName, className = '', text = null) {
-		const element = document.createElement(tagName);
-		if (className !== '') {
-			element.className = className;
-		}
-		if (text !== null && text !== undefined) {
-			element.textContent = String(text);
-		}
+	function createElement(tag, className = '', text = '') {
+		const element = document.createElement(tag);
+		if (className) element.className = className;
+		if (text !== '') element.textContent = text;
 		return element;
 	}
 
@@ -435,542 +417,26 @@
 		button.type = 'button';
 		button.className = 'vizion-matrix-report-button';
 		button.textContent = label;
-		button.addEventListener('click', (event) => {
-			event.preventDefault();
-			event.stopPropagation();
-			onClick(button);
-		});
+		button.addEventListener('click', () => onClick(button));
 		return button;
-	}
-
-	function formatValue(value, column) {
-		if (value === null || value === undefined || value === '') {
-			return '—';
-		}
-
-		const type = String(column.type || '').toLowerCase();
-
-		if (type === 'int' || type === 'integer' || type === 'number') {
-			const number = Number(value);
-			if (!Number.isNaN(number)) {
-				return new Intl.NumberFormat(undefined, { maximumFractionDigits: type === 'number' ? 2 : 0 }).format(number);
-			}
-		}
-
-		if (typeof value === 'object') {
-			return getText(value.label || value.value || '');
-		}
-
-		return String(value);
-	}
-
-	function renderCell(value, row, column) {
-		const wrapper = document.createElement('span');
-		wrapper.className = 'vizion-matrix-report-cell';
-		wrapper.textContent = formatValue(value, column);
-		return wrapper;
-	}
-
-	function getFilterField(key) {
-		return FILTER_FIELDS.find((field) => field.key === key) || null;
-	}
-
-	function valueSignature(value) {
-		try {
-			return JSON.stringify(value);
-		} catch (error) {
-			return String(value);
-		}
-	}
-
-	function valuesEqual(left, right) {
-		return valueSignature(left) === valueSignature(right);
-	}
-
-	function getEmptyFilterValue(field) {
-		if (field && Object.prototype.hasOwnProperty.call(field, 'emptyValue')) {
-			return field.emptyValue;
-		}
-
-		const type = String(field?.type || '').toLowerCase();
-
-		if (type === 'multiselect') {
-			return [];
-		}
-
-		if (type === 'range') {
-			return { min: '', max: '' };
-		}
-
-		if (type === 'daterange' || type === 'datetimerange') {
-			return { from: '', to: '' };
-		}
-
-		if (type === 'checkbox') {
-			return false;
-		}
-
-		return '';
-	}
-
-	function isEmptyFilterValue(key, value) {
-		const field = getFilterField(key);
-		const emptyValue = getEmptyFilterValue(field);
-
-		if (valuesEqual(value, emptyValue)) {
-			return true;
-		}
-
-		if (Array.isArray(value)) {
-			return value.length === 0;
-		}
-
-		if (value && typeof value === 'object') {
-			return Object.values(value).every((entry) => entry === '' || entry === null || entry === undefined || (Array.isArray(entry) && entry.length === 0));
-		}
-
-		return value === '' || value === null || value === undefined;
-	}
-
-	function buildFilterPayload(filters) {
-		const result = {};
-
-		Object.entries(filters || {}).forEach(([key, value]) => {
-			if (!isEmptyFilterValue(key, value)) {
-				result[key] = value;
-			}
-		});
-
-		return result;
-	}
-
-	function renderRangeFilter(api) {
-		const wrapper = document.createElement('div');
-		const value = api.value && typeof api.value === 'object' ? api.value : {};
-		const minInput = document.createElement('input');
-		const maxInput = document.createElement('input');
-
-		wrapper.className = 'mg-inline-buttons mg-compact-filter-control';
-		minInput.type = 'number';
-		maxInput.type = 'number';
-		minInput.className = 'mg-input';
-		maxInput.className = 'mg-input';
-		minInput.placeholder = 'Min';
-		maxInput.placeholder = 'Max';
-		minInput.value = value.min ?? '';
-		maxInput.value = value.max ?? '';
-
-		[minInput, maxInput].forEach((input) => {
-			input.dataset.key = api.field.key;
-			input.dataset.filterKey = api.field.key;
-			input.style.width = '82px';
-			['min', 'max', 'step'].forEach((attribute) => {
-				if (api.field[attribute] !== undefined && api.field[attribute] !== null) {
-					input.setAttribute(attribute, String(api.field[attribute]));
-				}
-			});
-		});
-
-		const update = () => api.setValue({ min: minInput.value, max: maxInput.value });
-		minInput.addEventListener('change', update);
-		maxInput.addEventListener('change', update);
-
-		wrapper.appendChild(minInput);
-		wrapper.appendChild(maxInput);
-
-		return wrapper;
-	}
-
-	function renderDateRangeFilter(api) {
-		const wrapper = document.createElement('div');
-		const value = api.value && typeof api.value === 'object' ? api.value : {};
-		const fromInput = document.createElement('input');
-		const toInput = document.createElement('input');
-		const inputType = api.field.valueType === 'datetimerange' ? 'datetime-local' : 'date';
-
-		wrapper.className = 'mg-inline-buttons mg-compact-filter-control';
-		fromInput.type = inputType;
-		toInput.type = inputType;
-		fromInput.className = 'mg-input';
-		toInput.className = 'mg-input';
-		fromInput.value = value.from ?? '';
-		toInput.value = value.to ?? '';
-
-		[fromInput, toInput].forEach((input) => {
-			input.dataset.key = api.field.key;
-			input.dataset.filterKey = api.field.key;
-			input.style.width = inputType === 'datetime-local' ? '180px' : '135px';
-		});
-
-		const update = () => api.setValue({ from: fromInput.value, to: toInput.value });
-		fromInput.addEventListener('change', update);
-		toInput.addEventListener('change', update);
-
-		wrapper.appendChild(fromInput);
-		wrapper.appendChild(toInput);
-
-		return wrapper;
-	}
-
-	function getChronoMode(field) {
-		const explicitMode = String(field.mode || '').toLowerCase();
-
-		if (explicitMode === 'datetime') {
-			return 'datetime';
-		}
-
-		const valueType = String(field.valueType || field.type || '').toLowerCase();
-		return valueType === 'datetime' || valueType === 'datetimerange' ? 'datetime' : 'date';
-	}
-
-	function getChronoDisplayFormat(field) {
-		if (field.format) {
-			return String(field.format);
-		}
-
-		return getChronoMode(field) === 'datetime' ? 'YYYY-MM-DD HH:mm' : 'YYYY-MM-DD';
-	}
-
-	function getChronoValueFormat(field) {
-		if (field.valueFormat) {
-			return String(field.valueFormat);
-		}
-
-		if (field.submitFormat) {
-			return String(field.submitFormat);
-		}
-
-		if (field.storageFormat) {
-			return String(field.storageFormat);
-		}
-
-		if (field.queryFormat) {
-			return String(field.queryFormat);
-		}
-
-		return getChronoDisplayFormat(field);
-	}
-
-	function getChronoPlaceholder(field, part) {
-		if (part === 'from' && field.fromPlaceholder) {
-			return String(field.fromPlaceholder);
-		}
-
-		if (part === 'to' && field.toPlaceholder) {
-			return String(field.toPlaceholder);
-		}
-
-		if (field.placeholder) {
-			return String(field.placeholder);
-		}
-
-		return getChronoDisplayFormat(field);
-	}
-
-	function escapeRegexChar(value) {
-		const specialChars = '.*+?^$()|[]\\{}';
-
-		return String(value).split('').map((char) => {
-			return specialChars.includes(char) ? '\\' + char : char;
-		}).join('');
-	}
-
-	function parseChronoParts(value, format) {
-		if (value === null || value === undefined || value === '') {
-			return null;
-		}
-
-		const text = String(value).trim();
-		const tokens = ['YYYY', 'MM', 'DD', 'HH', 'mm'];
-		const tokenPatterns = {
-			YYYY: '(\\d{4})',
-			MM: '(\\d{2})',
-			DD: '(\\d{2})',
-			HH: '(\\d{2})',
-			mm: '(\\d{2})'
-		};
-		const tokenOrder = [];
-		let pattern = '^';
-		let index = 0;
-
-		while (index < format.length) {
-			const token = tokens.find((candidate) => format.slice(index).startsWith(candidate));
-
-			if (token) {
-				pattern += tokenPatterns[token];
-				tokenOrder.push(token);
-				index += token.length;
-				continue;
-			}
-
-			pattern += escapeRegexChar(format[index]);
-			index += 1;
-		}
-
-		pattern += '$';
-
-		const match = new RegExp(pattern).exec(text);
-
-		if (!match) {
-			return null;
-		}
-
-		const parts = {
-			YYYY: '1970',
-			MM: '01',
-			DD: '01',
-			HH: '00',
-			mm: '00'
-		};
-
-		tokenOrder.forEach((token, tokenIndex) => {
-			parts[token] = match[tokenIndex + 1];
-		});
-
-		const year = Number(parts.YYYY);
-		const month = Number(parts.MM);
-		const day = Number(parts.DD);
-		const hour = Number(parts.HH);
-		const minute = Number(parts.mm);
-		const date = new Date(year, month - 1, day, hour, minute, 0, 0);
-
-		if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day || date.getHours() !== hour || date.getMinutes() !== minute) {
-			return null;
-		}
-
-		return parts;
-	}
-
-	function formatChronoParts(parts, format) {
-		return String(format)
-			.replaceAll('YYYY', parts.YYYY)
-			.replaceAll('MM', parts.MM)
-			.replaceAll('DD', parts.DD)
-			.replaceAll('HH', parts.HH)
-			.replaceAll('mm', parts.mm);
-	}
-
-	function convertChronoValue(value, sourceFormat, targetFormat) {
-		if (value === null || value === undefined || value === '') {
-			return '';
-		}
-
-		if (sourceFormat === targetFormat) {
-			return String(value);
-		}
-
-		const parts = parseChronoParts(value, sourceFormat);
-
-		if (!parts) {
-			return String(value);
-		}
-
-		return formatChronoParts(parts, targetFormat);
-	}
-
-	function createChronoInput(api, part, value, commitValue) {
-		const input = document.createElement('input');
-		const mode = getChronoMode(api.field);
-		const displayFormat = getChronoDisplayFormat(api.field);
-		const valueFormat = getChronoValueFormat(api.field);
-		const displayValue = convertChronoValue(value || '', valueFormat, displayFormat);
-		let lastCommittedValue = value || '';
-
-		input.type = 'text';
-		input.className = 'mg-input mg-compact-filter-control cp-input-bound';
-		input.placeholder = getChronoPlaceholder(api.field, part);
-		input.value = displayValue;
-		input.name = api.field.key + '_' + part;
-		input.dataset.key = api.field.key;
-		input.dataset.filterKey = api.field.key;
-		input.dataset.mgFocusKey = 'filter-filters-' + api.field.key + '-' + part;
-
-		if (api.field.inputWidth) {
-			input.style.width = String(api.field.inputWidth) + 'px';
-		}
-
-		function commit(nextDisplayValue) {
-			const nextValue = convertChronoValue(nextDisplayValue || '', displayFormat, valueFormat);
-
-			if (nextValue === lastCommittedValue) {
-				return;
-			}
-
-			lastCommittedValue = nextValue;
-			commitValue(nextValue);
-		}
-
-		const picker = new ChronoPicker(input, {
-			mode,
-			displayMode: 'popover',
-			value: input.value || '',
-			format: displayFormat,
-			min: api.field.min || null,
-			max: api.field.max || null,
-			minuteStep: Number(api.field.minuteStep || 1),
-			closeOnSelect: Object.prototype.hasOwnProperty.call(api.field, 'closeOnSelect') ? api.field.closeOnSelect === true : mode === 'date',
-			plugins: [
-				DatePickerPlugin,
-				DateTimePlugin,
-				KeyboardPlugin
-			],
-			onChange(nextDisplayValue) {
-				input.value = nextDisplayValue || '';
-				commit(input.value);
-			}
-		});
-		const changeHandler = () => commit(input.value || '');
-		const keydownHandler = (event) => {
-			if (event.key === 'Enter') {
-				commit(input.value || '');
-			}
-		};
-
-		input.addEventListener('change', changeHandler);
-		input.addEventListener('keydown', keydownHandler);
-		picker.init();
-
-		return {
-			input,
-			destroy() {
-				input.removeEventListener('change', changeHandler);
-				input.removeEventListener('keydown', keydownHandler);
-
-				if (typeof picker.destroy === 'function') {
-					picker.destroy();
-				}
-			}
-		};
-	}
-
-	function renderChronoDateFilter(api) {
-		const control = createChronoInput(api, 'value', api.value || '', (nextValue) => {
-			api.setValue(nextValue);
-		});
-
-		if (api.field.width && !api.field.inputWidth) {
-			control.input.style.width = String(api.field.width) + 'px';
-		}
-
-		return {
-			element: control.input,
-			destroy() {
-				control.destroy();
-			}
-		};
-	}
-
-	function renderChronoDateRangeFilter(api) {
-		const wrapper = document.createElement('div');
-		let value = api.value && typeof api.value === 'object' ? Object.assign({}, api.value) : { from: '', to: '' };
-
-		wrapper.className = 'mg-chrono-range mg-compact-filter-control';
-
-		if (api.field.width) {
-			wrapper.style.width = String(api.field.width) + 'px';
-		}
-
-		function setPart(part, partValue) {
-			const nextValue = Object.assign({}, value);
-			nextValue[part] = partValue || '';
-			value = nextValue;
-			api.setValue({
-				from: value.from || '',
-				to: value.to || ''
-			});
-		}
-
-		const fromControl = createChronoInput(api, 'from', value.from || '', (nextValue) => setPart('from', nextValue));
-		const toControl = createChronoInput(api, 'to', value.to || '', (nextValue) => setPart('to', nextValue));
-		const separator = document.createElement('span');
-		separator.className = 'mg-chrono-range-separator';
-		separator.textContent = '–';
-
-		wrapper.appendChild(fromControl.input);
-		wrapper.appendChild(separator);
-		wrapper.appendChild(toControl.input);
-
-		return {
-			element: wrapper,
-			destroy() {
-				fromControl.destroy();
-				toControl.destroy();
-			}
-		};
-	}
-
-	function buildGridFilterFields(fields) {
-		return (fields || []).map((field) => {
-			const nextField = Object.assign({}, field);
-			const type = String(field.type || '').toLowerCase();
-			const control = String(field.control || '').toLowerCase();
-			const useChronoPicker = control === 'chronopicker' || control === 'chrono';
-
-			if ((type === 'date' || type === 'datetime') && useChronoPicker) {
-				nextField.valueType = type;
-				nextField.renderControl = renderChronoDateFilter;
-			}
-
-			if (type === 'range') {
-				nextField.valueType = 'range';
-				nextField.renderControl = renderRangeFilter;
-			}
-
-			if (type === 'daterange' || type === 'datetimerange') {
-				nextField.valueType = type;
-				nextField.renderControl = useChronoPicker ? renderChronoDateRangeFilter : renderDateRangeFilter;
-			}
-
-			return nextField;
-		});
 	}
 
 	function buildSortTypes(columns) {
 		const sortTypes = {};
-		columns.forEach((column) => {
-			sortTypes[column.key] = column.type || 'string';
-		});
+		columns.forEach((column) => { sortTypes[column.key] = column.type || 'string'; });
 		return sortTypes;
 	}
-
-	function buildColumns(columns) {
-		return columns.map((column) => {
-			const gridColumn = Object.assign({}, column, {
-				headerMenu: {
-					defaultSortKey: column.key,
-					defaultSortDirection: 'asc',
-					sortOptions: [{ key: column.key, label: column.label || column.key }]
-				},
-				render(value, row) {
-					return renderCell(value, row, column);
-				}
-			});
-
-			if (Number(column.width || 0) > 0) {
-				gridColumn.width = Number(column.width);
-			}
-
-			return gridColumn;
-		});
-	}
-
 
 	function createClipboardRecord(row) {
 		const record = {};
 
 		REPORT_COLUMNS.forEach((column) => {
-			if (!column || !column.key) {
-				return;
-			}
-
+			if (!column || !column.key) return;
 			record[column.key] = row ? row[column.key] : null;
 		});
 
 		Object.entries(row || {}).forEach(([key, value]) => {
-			if (String(key).startsWith('__') || Object.prototype.hasOwnProperty.call(record, key)) {
-				return;
-			}
-
+			if (String(key).startsWith('__') || Object.prototype.hasOwnProperty.call(record, key)) return;
 			record[key] = value;
 		});
 
@@ -991,11 +457,8 @@
 		document.body.appendChild(textarea);
 		textarea.select();
 
-		try {
-			document.execCommand('copy');
-		} finally {
-			document.body.removeChild(textarea);
-		}
+		try { document.execCommand('copy'); }
+		finally { document.body.removeChild(textarea); }
 	}
 
 	async function copyPayloadToClipboard(payload) {
@@ -1039,15 +502,10 @@
 			body: JSON.stringify(payload)
 		});
 
-		if (!response.ok) {
-			throw new Error('Request failed with status ' + String(response.status));
-		}
+		if (!response.ok) throw new Error('Request failed with status ' + String(response.status));
 
 		const json = await response.json();
-		if (json && json.ok === false) {
-			throw new Error(getText(json.error, 'Request failed.'));
-		}
-
+		if (json && json.ok === false) throw new Error(getText(json.error, 'Request failed.'));
 		return json;
 	}
 
@@ -1056,11 +514,11 @@
 		const parameter = getText(REPORT_CONFIG?.detail?.parameter, 'id');
 		const id = Number(row && (row[parameter] || row.id));
 
-		if (!id) {
-			throw new Error('Missing matrix detail parameter.');
-		}
+		if (!id) throw new Error('Missing matrix detail parameter.');
 
-		const response = await postJson({ mode: 'matrix-detail', [parameter]: id, id });
+		const payload = { mode: 'matrix-detail', id };
+		payload[parameter] = id;
+		const response = await postJson(payload);
 
 		if (!response || !response.found || !response.detail) {
 			throw new Error(getText(response && response.error, 'No matrix detail returned.'));
@@ -1102,9 +560,7 @@
 			const sub = [];
 			if (value.percentage) sub.push(value.percentage);
 			if (value.mark) sub.push(value.mark);
-			if (sub.length > 0) {
-				wrapper.appendChild(createElement('div', 'vizion-matrix-report-cell-sub', sub.join(' / ')));
-			}
+			if (sub.length > 0) wrapper.appendChild(createElement('div', 'vizion-matrix-report-cell-sub', sub.join(' / ')));
 		}
 
 		return wrapper;
@@ -1143,11 +599,8 @@
 				columns.forEach((column) => {
 					const td = document.createElement('td');
 					const value = row[column.key];
-					if (column.type === 'status') {
-						td.appendChild(renderStatusCell(value, row[column.statusKey] || ''));
-					} else {
-						td.textContent = getText(value);
-					}
+					if (column.type === 'status') td.appendChild(renderStatusCell(value, row[column.statusKey] || ''));
+					else td.textContent = getText(value);
 					tr.appendChild(td);
 				});
 				tbody.appendChild(tr);
@@ -1166,16 +619,12 @@
 			detail.requestFullscreen();
 			return;
 		}
-		if (document.fullscreenElement && document.exitFullscreen) {
-			document.exitFullscreen();
-		}
+		if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen();
 	}
 
 	function renderMatrixDetail(context) {
 		const payload = context && context.payload ? context.payload : null;
-		if (!payload || typeof payload !== 'object') {
-			return document.createTextNode(getText(payload));
-		}
+		if (!payload || typeof payload !== 'object') return document.createTextNode(getText(payload));
 
 		const wrapper = createElement('div', 'vizion-matrix-report-detail');
 		const header = createElement('div', 'vizion-matrix-report-detail-header');
@@ -1209,7 +658,7 @@
 			totalPath: 'total',
 			mapRequest(request) {
 				const state = grid ? grid.getState() : {};
-				const filters = buildFilterPayload(state.filters || {});
+				const filters = reportFilterTools.buildFilterPayload(state.filters || {}, FILTER_FIELDS);
 				const sortKey = request.sortKey || defaultSortKey;
 				const sortDirection = request.sortDirection || defaultSortDirection;
 				return {
@@ -1246,7 +695,7 @@
 				InfiniteScrollPlugin
 			],
 			pluginOptions: {
-				search: { zone: 'topLine1', order: 10, label: 'Search', placeholder: 'Search matrix headlines' },
+				search: { zone: 'topLine1', order: 10, label: 'Search', placeholder: 'Search matrix rows' },
 				compactFilters: {
 					zone: 'topLine2',
 					order: 10,
@@ -1258,13 +707,11 @@
 					pickerWidth: 145,
 					pickerMinWidth: 145,
 					clearLabel: 'Filter löschen',
-					fields: buildGridFilterFields(FILTER_FIELDS),
+					fields: reportFilterTools.buildGridFilterFields(FILTER_FIELDS),
 					initialValues: FILTER_INITIAL_VALUES
 				},
 				headerMenu: { showSortActions: true, showClearSortAction: true, showHideColumnAction: true },
-				selection: {
-					rowIdKey: '__row_key'
-				},
+				selection: { rowIdKey: '__row_key' },
 				bulkActions: {
 					zone: 'topLine1',
 					order: 30,
@@ -1272,42 +719,13 @@
 					selectedLabel: 'Ausgewählt',
 					emptyText: 'Keine Auswahl',
 					items: [
-						{
-							key: 'copy-selected-clipboard',
-							label: 'Auswahl kopieren',
-							onClick(context) {
-								copySelectedMatrixRows(context.selectedRows || []);
-							}
-						},
-						{
-							key: 'clear-selection',
-							label: 'Auswahl löschen',
-							command: 'clearSelection'
-						}
+						{ key: 'copy-selected-clipboard', label: 'Auswahl kopieren', onClick(context) { copySelectedMatrixRows(context.selectedRows || []); } },
+						{ key: 'clear-selection', label: 'Auswahl löschen', command: 'clearSelection' }
 					]
 				},
 				rowActions: {
-					headerMenu: {
-						enabled: true,
-						buttonLabel: '...',
-						items: [
-							{
-								type: 'columnVisibility',
-								label: 'Spalten',
-								showReset: true,
-								resetLabel: 'Spalten zurücksetzen'
-							}
-						]
-					},
-					items: [
-						{
-							key: 'copy-clipboard',
-							label: 'In Zwischenablage kopieren',
-							onClick(context) {
-								copyMatrixRow(context.row);
-							}
-						}
-					]
+					headerMenu: { enabled: true, buttonLabel: '...', items: [{ type: 'columnVisibility', label: 'Spalten', showReset: true, resetLabel: 'Spalten zurücksetzen' }] },
+					items: [{ key: 'copy-clipboard', label: 'In Zwischenablage kopieren', onClick(context) { copyMatrixRow(context.row); } }]
 				},
 				reset: { zone: 'topLine1', order: 40, label: 'Reset', sections: ['query', 'filters', 'filterVisibility', 'columns', 'selection', 'detailView'] },
 				sessionStorage: { key: 'vizion-matrix-report-' + (REPORT_CONFIG?.report || 'report') + '-' + FILTER_STORAGE_SIGNATURE, sections: ['query', 'filters', 'filterVisibility', 'columns', 'selection', 'detailView'] },
@@ -1324,13 +742,11 @@
 				},
 				infiniteScroll: { threshold: 180, pageSize: BATCH_SIZE, containerSelector: '.mg-table-scroll' }
 			},
-			columns: buildColumns(REPORT_COLUMNS)
+			columns: reportCellTools.buildColumns(REPORT_COLUMNS)
 		});
 
 		grid.on('data:appended', ({ appendedCount, totalLoaded }) => setLog('Loaded ' + appendedCount + ' more rows. ' + totalLoaded + ' rows are currently loaded.'));
-		grid.on('detail:changed', (payload = {}) => {
-			if (payload.rowId) setLog('Opened matrix detail for ' + payload.rowId);
-		});
+		grid.on('detail:changed', (payload = {}) => { if (payload.rowId) setLog('Opened matrix detail for ' + payload.rowId); });
 
 		await grid.init();
 		setLog('Initial batch loaded. Scroll to append the next ' + BATCH_SIZE + ' rows automatically.');

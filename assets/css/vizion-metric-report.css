@@ -1,0 +1,82 @@
+.vizion-metric-report-shell {
+	max-width: 1700px;
+	margin: 0 0 12px 0;
+}
+
+.vizion-metric-report-header {
+	margin: 0 0 10px 0;
+}
+
+.vizion-metric-report-title {
+	margin: 0 0 4px 0;
+	font-size: 18px;
+	line-height: 1.25;
+	font-weight: 600;
+	color: #222;
+}
+
+.vizion-metric-report-description {
+	font-size: 13px;
+	line-height: 1.4;
+	color: #666;
+}
+
+.vizion-metric-card-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(var(--vizion-metric-card-min-width, 150px), 1fr));
+	gap: 10px;
+	margin: 0 0 12px 0;
+}
+
+.vizion-metric-card {
+	border: 1px solid #e2e2e2;
+	border-radius: 8px;
+	background: #fff;
+	padding: 11px 13px;
+	min-width: 0;
+}
+
+.vizion-metric-card-label {
+	font-size: 13px;
+	line-height: 1.25;
+	color: #666;
+	margin: 0 0 5px 0;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.vizion-metric-card-value {
+	font-size: 30px;
+	line-height: 1.1;
+	font-weight: 600;
+	color: #222;
+	font-variant-numeric: tabular-nums;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.vizion-metric-card-description {
+	margin: 7px 0 0 0;
+	font-size: 12px;
+	line-height: 1.35;
+	color: #777;
+}
+
+.vizion-metric-card-error {
+	border-color: #d8a0a0;
+	background: #fff5f5;
+}
+
+.vizion-metric-card-error .vizion-metric-card-value {
+	color: #7f1d1d;
+}
+
+.vizion-metric-card-error-message {
+	margin: 7px 0 0 0;
+	font-size: 12px;
+	line-height: 1.35;
+	color: #7f1d1d;
+	word-break: break-word;
+}

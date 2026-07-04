@@ -9,6 +9,7 @@ use Base3\Api\IMvcView;
 use Base3\Api\IRequest;
 use Base3\LinkTarget\Api\ILinkTargetService;
 use ResourceFoundation\Api\IQueryService;
+use Vizion\Api\IReportCellRendererService;
 use Vizion\Api\IReportConfigProvider;
 use Vizion\Api\IReportFilterService;
 use Throwable;
@@ -28,7 +29,8 @@ final class MatrixReportDisplay implements IDisplay {
 		private readonly IReportConfigProvider $configProvider,
 		private readonly IClassMap $classmap,
 		private readonly ILinkTargetService $linkTargetService,
-		private readonly IReportFilterService $reportFilterService
+		private readonly IReportFilterService $reportFilterService,
+		private readonly IReportCellRendererService $reportCellRendererService
 	) {}
 
 	public static function getName(): string {
@@ -66,12 +68,16 @@ final class MatrixReportDisplay implements IDisplay {
 		], [
 			'report' => $report
 		]));
-		$this->view->assign('columns', $this->buildColumns($this->getFields()));
+		$this->view->assign('columns', $this->reportCellRendererService->buildGridColumns($this->getFields()));
 		$this->view->assign('filterFields', $this->reportFilterService->buildGridFilterFields($this->getFields()));
 		$this->view->assign('filterInitialValues', $this->reportFilterService->buildInitialFilterValues($this->getFields()));
 		$this->view->assign('config', $config);
 		$this->view->assign('modulargridCssUrl', $this->assetResolver->resolve('plugin/ClientStack/assets/modulargrid/styles/modulargrid.css'));
 		$this->view->assign('modulargridJsUrl', $this->assetResolver->resolve('plugin/ClientStack/assets/modulargrid/index.js'));
+		$this->view->assign('chronoPickerCssUrl', $this->assetResolver->resolve('plugin/ClientStack/assets/chronopicker/styles/chronopicker.css'));
+		$this->view->assign('chronoPickerJsUrl', $this->assetResolver->resolve('plugin/ClientStack/assets/chronopicker/index.js'));
+		$this->view->assign('filterControlsJsUrl', $this->assetResolver->resolve('plugin/Vizion/assets/js/vizion-report-filter-controls.js'));
+		$this->view->assign('cellRenderersJsUrl', $this->assetResolver->resolve('plugin/Vizion/assets/js/vizion-report-cell-renderers.js'));
 
 		return $this->view->loadTemplate();
 	}
@@ -372,29 +378,6 @@ final class MatrixReportDisplay implements IDisplay {
 			}
 		}
 		return $result;
-	}
-
-	/** @param array<int,array<string,mixed>> $fields @return array<int,array<string,mixed>> */
-	private function buildColumns(array $fields): array {
-		$columns = [];
-		foreach($fields as $field) {
-			if(!isset($field['alias'])) {
-				continue;
-			}
-			$fieldConfig = isset($field['config']) && is_array($field['config']) ? $field['config'] : [];
-			$alias = (string) $field['alias'];
-			$column = [
-				'key' => $alias,
-				'label' => (string) ($fieldConfig['label'] ?? $alias),
-				'visible' => $fieldConfig['visible'] ?? true,
-				'type' => (string) ($fieldConfig['type'] ?? 'string')
-			];
-			if(isset($fieldConfig['width']) && is_numeric($fieldConfig['width'])) {
-				$column['width'] = (int) $fieldConfig['width'];
-			}
-			$columns[] = $column;
-		}
-		return $columns;
 	}
 
 	/** @return array<string,mixed> */

@@ -2,14 +2,20 @@
 
 namespace Vizion\Filter;
 
+use Base3\Api\IClassMap;
 use Vizion\Api\IReportFilterService;
+use Vizion\Api\IReportFilterType;
 
 final class ReportFilterService implements IReportFilterService {
 
-	/**
-	 * @param array<int,array<string,mixed>> $fields
-	 * @return array<int,array<string,mixed>>
-	 */
+	private ReportFilterTypeRegistry $typeRegistry;
+	private ReportFilterControlRegistry $controlRegistry;
+
+	public function __construct(IClassMap $classMap) {
+		$this->typeRegistry = new ReportFilterTypeRegistry($classMap);
+		$this->controlRegistry = new ReportFilterControlRegistry($classMap);
+	}
+
 	public function buildGridFilterFields(array $fields): array {
 		$result = [];
 
@@ -26,10 +32,6 @@ final class ReportFilterService implements IReportFilterService {
 		return $result;
 	}
 
-	/**
-	 * @param array<int,array<string,mixed>> $fields
-	 * @return array<string,mixed>
-	 */
 	public function buildInitialFilterValues(array $fields): array {
 		$result = [];
 
@@ -40,17 +42,13 @@ final class ReportFilterService implements IReportFilterService {
 				continue;
 			}
 
-			$result[(string) $field['alias']] = $definition['initialValue'];
+			$type = $this->getType($definition);
+			$result[(string) $field['alias']] = $type->normalizeValue($definition['initialValue'], $definition);
 		}
 
 		return $result;
 	}
 
-	/**
-	 * @param mixed $filtersPayload
-	 * @param array<int,array<string,mixed>> $fields
-	 * @return array<string,mixed>
-	 */
 	public function normalizeFilters(mixed $filtersPayload, array $fields): array {
 		$result = [];
 
@@ -71,9 +69,10 @@ final class ReportFilterService implements IReportFilterService {
 				continue;
 			}
 
-			$normalized = $this->normalizeValue($value, $definition);
+			$type = $this->getType($definition);
+			$normalized = $type->normalizeValue($value, $definition);
 
-			if($this->isEmptyValue($normalized, $definition)) {
+			if($type->isEmptyValue($normalized, $definition)) {
 				continue;
 			}
 
@@ -83,12 +82,6 @@ final class ReportFilterService implements IReportFilterService {
 		return $result;
 	}
 
-	/**
-	 * @param array<string,mixed> $filters
-	 * @param array<int,array<string,mixed>> $fields
-	 * @param array<string,mixed> $fieldDefs
-	 * @return array<string,mixed>|null
-	 */
 	public function buildFilterWhere(array $filters, array $fields, array $fieldDefs): ?array {
 		$conditions = [];
 		$fieldsByAlias = $this->buildFieldsByAlias($fields);
@@ -104,7 +97,8 @@ final class ReportFilterService implements IReportFilterService {
 				continue;
 			}
 
-			$condition = $this->buildCondition($fieldDefs[$alias], $value, $definition);
+			$type = $this->getType($definition);
+			$condition = $type->buildCondition($fieldDefs[$alias], $value, $definition);
 
 			if($condition !== null) {
 				$conditions[] = $condition;
@@ -124,10 +118,11 @@ final class ReportFilterService implements IReportFilterService {
 			];
 	}
 
-	/**
-	 * @param array<string,mixed> $field
-	 * @return array<string,mixed>|null
-	 */
+	private function getType(array $definition): IReportFilterType {
+		return $this->typeRegistry->getType((string) ($definition['type'] ?? 'text'));
+	}
+
+	/** @param array<string,mixed> $field @return array<string,mixed>|null */
 	private function getFilterDefinition(array $field): ?array {
 		$config = isset($field['config']) && is_array($field['config']) ? $field['config'] : [];
 		$filter = $config['filter'] ?? null;
@@ -157,29 +152,28 @@ final class ReportFilterService implements IReportFilterService {
 		return null;
 	}
 
-	/**
-	 * @param array<string,mixed> $field
-	 * @param array<string,mixed> $definition
-	 * @return array<string,mixed>
-	 */
+	/** @param array<string,mixed> $field @param array<string,mixed> $definition @return array<string,mixed> */
 	private function buildGridFilterField(array $field, array $definition): array {
 		$config = isset($field['config']) && is_array($field['config']) ? $field['config'] : [];
 		$alias = (string) ($field['alias'] ?? '');
-		$type = $this->normalizeType((string) ($definition['type'] ?? 'text'));
+		$type = $this->getType($definition);
+		$typeName = $type->getType();
+		$definition['type'] = $typeName;
+		$definition['match'] = $type->normalizeMatch((string) ($definition['match'] ?? ''));
+
 		$gridField = [
 			'key' => $alias,
 			'label' => (string) ($definition['label'] ?? ($config['label'] ?? $alias)),
-			'type' => $type,
-			'match' => $this->normalizeMatch((string) ($definition['match'] ?? ''), $type),
+			'type' => $typeName,
+			'match' => $definition['match'],
 			'visibility' => $this->normalizeVisibility((string) ($definition['visibility'] ?? (($config['visible'] ?? true) === false ? 'optional' : 'always'))),
 			'placeholder' => (string) ($definition['placeholder'] ?? ($config['filterPlaceholder'] ?? ($config['label'] ?? $alias))),
-			'defaultValue' => array_key_exists('defaultValue', $definition)
-				? $definition['defaultValue']
-				: $this->getDefaultValue($type),
+			'defaultValue' => $type->normalizeValue($type->getDefaultValue($definition), $definition),
+			'emptyValue' => $type->normalizeValue($type->getEmptyValue($definition), $definition),
 		];
 
 		if(array_key_exists('initialValue', $definition)) {
-			$gridField['initialValue'] = $definition['initialValue'];
+			$gridField['initialValue'] = $type->normalizeValue($definition['initialValue'], $definition);
 		}
 
 		$width = $definition['width'] ?? $config['filterWidth'] ?? null;
@@ -187,7 +181,7 @@ final class ReportFilterService implements IReportFilterService {
 			$gridField['width'] = (int) $width;
 		}
 
-		foreach(['minWidth', 'maxWidth', 'min', 'max', 'step', 'control', 'source', 'emptyValue', 'format', 'valueFormat', 'submitFormat', 'storageFormat', 'queryFormat', 'mode', 'inputWidth', 'fromPlaceholder', 'toPlaceholder', 'minuteStep', 'closeOnSelect'] as $key) {
+		foreach(['minWidth', 'maxWidth', 'min', 'max', 'step', 'control', 'source', 'format', 'valueFormat', 'submitFormat', 'storageFormat', 'queryFormat', 'mode', 'inputWidth', 'fromPlaceholder', 'toPlaceholder', 'minuteStep', 'closeOnSelect', 'selectedLabel', 'emptyLabel', 'valueLabelPrefix', 'valueLabelSuffix'] as $key) {
 			if(array_key_exists($key, $definition)) {
 				$gridField[$key] = $definition[$key];
 			}
@@ -197,88 +191,30 @@ final class ReportFilterService implements IReportFilterService {
 			$gridField['options'] = $this->normalizeOptions($definition['options']);
 		}
 
-		return $gridField;
+		$gridField = $type->configureGridField($gridField, $field, $definition);
+		$controlName = $this->getControlName($definition, $typeName);
+		$control = $this->controlRegistry->getControl($controlName);
+
+		return $control->configureGridField($gridField, $field, $definition);
 	}
 
 	private function normalizeVisibility(string $visibility): string {
 		return strtolower($visibility) === 'optional' ? 'optional' : 'always';
 	}
 
-	private function normalizeType(string $type): string {
-		$type = strtolower(trim($type));
-
-		return match($type) {
-			'search' => 'search',
-			'select' => 'select',
-			'multiselect', 'multi_select', 'multi-select' => 'multiselect',
-			'checkbox', 'bool', 'boolean' => 'checkbox',
-			'radio' => 'radio',
-			'int', 'integer', 'number', 'float', 'decimal' => 'number',
-			'slider' => 'slider',
-			'range', 'numberrange', 'number_range', 'number-range' => 'range',
-			'date' => 'date',
-			'datetime', 'datetime-local' => 'datetime',
-			'daterange', 'date_range', 'date-range' => 'daterange',
-			'datetimerange', 'datetime_range', 'datetime-range' => 'datetimerange',
-			'custom' => 'custom',
-			default => 'text'
-		};
-	}
-
-	private function normalizeMatch(string $match, string $type): string {
-		$match = strtolower(trim($match));
-
-		if($match === '') {
-			return match($type) {
-				'multiselect' => 'in',
-				'number', 'slider', 'date', 'datetime', 'select', 'radio', 'checkbox' => 'equals',
-				'range', 'daterange', 'datetimerange' => 'between',
-				default => 'contains'
-			};
+	private function getControlName(array $definition, string $typeName): string {
+		if(isset($definition['control']) && is_scalar($definition['control']) && trim((string) $definition['control']) !== '') {
+			return (string) $definition['control'];
 		}
 
-		return match($match) {
-			'=', 'eq', 'equals' => 'equals',
-			'!=', '<>', 'neq', 'not_equals', 'not-equals' => 'notEquals',
-			'contains', 'like' => 'contains',
-			'startswith', 'starts_with', 'starts-with' => 'startsWith',
-			'endswith', 'ends_with', 'ends-with' => 'endsWith',
-			'in' => 'in',
-			'between' => 'between',
-			'>', 'gt' => 'gt',
-			'>=', 'gte' => 'gte',
-			'<', 'lt' => 'lt',
-			'<=', 'lte' => 'lte',
-			default => match($type) {
-				'multiselect' => 'in',
-				'number', 'slider', 'date', 'datetime', 'select', 'radio', 'checkbox' => 'equals',
-				'range', 'daterange', 'datetimerange' => 'between',
-				default => 'contains'
-			}
+		return match($typeName) {
+			'range' => 'range',
+			'daterange', 'datetimerange' => 'daterange',
+			default => 'native'
 		};
 	}
 
-	private function getDefaultValue(string $type): mixed {
-		return match($type) {
-			'checkbox' => false,
-			default => $this->getEmptyValue($type)
-		};
-	}
-
-	private function getEmptyValue(string $type): mixed {
-		return match($type) {
-			'checkbox' => false,
-			'multiselect' => [],
-			'range' => ['min' => '', 'max' => ''],
-			'daterange', 'datetimerange' => ['from' => '', 'to' => ''],
-			default => ''
-		};
-	}
-
-	/**
-	 * @param array<mixed> $options
-	 * @return array<int,array<string,string>>
-	 */
+	/** @param array<mixed> $options @return array<int,array<string,string>> */
 	private function normalizeOptions(array $options): array {
 		$result = [];
 
@@ -300,10 +236,7 @@ final class ReportFilterService implements IReportFilterService {
 		return $result;
 	}
 
-	/**
-	 * @param array<int,array<string,mixed>> $fields
-	 * @return array<string,array<string,mixed>>
-	 */
+	/** @param array<int,array<string,mixed>> $fields @return array<string,array<string,mixed>> */
 	private function buildFieldsByAlias(array $fields): array {
 		$result = [];
 
@@ -314,345 +247,5 @@ final class ReportFilterService implements IReportFilterService {
 		}
 
 		return $result;
-	}
-
-	/**
-	 * @param array<string,mixed> $definition
-	 */
-	private function normalizeValue(mixed $value, array $definition): mixed {
-		$type = $this->normalizeType((string) ($definition['type'] ?? 'text'));
-
-		return match($type) {
-			'checkbox' => $this->normalizeBoolValue($value),
-			'number', 'slider' => $this->normalizeNumberValue($value),
-			'multiselect' => $this->normalizeMultiValue($value),
-			'range' => $this->normalizeRangeValue($value),
-			'date', 'datetime' => $this->normalizeDateValue($value, $definition, $type),
-			'daterange', 'datetimerange' => $this->normalizeDateRangeValue($value, $definition, $type),
-			default => $this->normalizeScalarTextValue($value)
-		};
-	}
-
-	private function normalizeBoolValue(mixed $value): bool {
-		if(is_bool($value)) {
-			return $value;
-		}
-
-		if(is_numeric($value)) {
-			return ((int) $value) === 1;
-		}
-
-		if(is_string($value)) {
-			return in_array(strtolower(trim($value)), ['1', 'true', 'yes', 'ja', 'on'], true);
-		}
-
-		return false;
-	}
-
-	private function normalizeNumberValue(mixed $value): mixed {
-		if($value === null || $value === '') {
-			return '';
-		}
-
-		if(!is_scalar($value) || !is_numeric($value)) {
-			return '';
-		}
-
-		$number = (string) $value;
-
-		return str_contains($number, '.') ? (float) $number : (int) $number;
-	}
-
-	private function normalizeScalarTextValue(mixed $value): string {
-		return is_scalar($value) ? trim((string) $value) : '';
-	}
-
-	/** @return array<int,mixed> */
-	private function normalizeMultiValue(mixed $value): array {
-		$values = is_array($value) ? $value : [$value];
-		$result = [];
-
-		foreach($values as $item) {
-			if(!is_scalar($item)) {
-				continue;
-			}
-
-			$item = trim((string) $item);
-
-			if($item !== '') {
-				$result[] = $item;
-			}
-		}
-
-		return array_values(array_unique($result));
-	}
-
-	/** @return array<string,mixed> */
-	private function normalizeRangeValue(mixed $value): array {
-		if(!is_array($value)) {
-			return ['min' => '', 'max' => ''];
-		}
-
-		return [
-			'min' => $this->normalizeNumberValue($value['min'] ?? ''),
-			'max' => $this->normalizeNumberValue($value['max'] ?? '')
-		];
-	}
-
-	private function normalizeDateValue(mixed $value, array $definition, string $type): string {
-		$text = $this->normalizeScalarTextValue($value);
-
-		if($text === '') {
-			return '';
-		}
-
-		$targetFormat = $this->getDateValueFormat($definition, $type);
-		$formats = $this->getDateInputFormats($definition, $type, $targetFormat);
-
-		foreach($formats as $format) {
-			$parts = $this->parseDateValue($text, $format);
-
-			if($parts !== null) {
-				return $this->formatDateValue($parts, $targetFormat);
-			}
-		}
-
-		return $text;
-	}
-
-	/** @return array<string,string> */
-	private function normalizeDateRangeValue(mixed $value, array $definition, string $type): array {
-		if(!is_array($value)) {
-			return ['from' => '', 'to' => ''];
-		}
-
-		$valueType = $type === 'datetimerange' ? 'datetime' : 'date';
-
-		return [
-			'from' => $this->normalizeDateValue($value['from'] ?? '', $definition, $valueType),
-			'to' => $this->normalizeDateValue($value['to'] ?? '', $definition, $valueType)
-		];
-	}
-
-	private function getDateDisplayFormat(array $definition, string $type): string {
-		if(isset($definition['format']) && is_scalar($definition['format'])) {
-			return (string) $definition['format'];
-		}
-
-		return in_array($type, ['datetime', 'datetimerange'], true) ? 'YYYY-MM-DD HH:mm' : 'YYYY-MM-DD';
-	}
-
-	private function getDateValueFormat(array $definition, string $type): string {
-		foreach(['valueFormat', 'submitFormat', 'storageFormat', 'queryFormat'] as $key) {
-			if(isset($definition[$key]) && is_scalar($definition[$key])) {
-				return (string) $definition[$key];
-			}
-		}
-
-		return $this->getDateDisplayFormat($definition, $type);
-	}
-
-	/** @return array<int,string> */
-	private function getDateInputFormats(array $definition, string $type, string $targetFormat): array {
-		$formats = [
-			$targetFormat,
-			$this->getDateDisplayFormat($definition, $type),
-			'YYYY-MM-DD',
-			'DD.MM.YYYY'
-		];
-
-		if(in_array($type, ['datetime', 'datetimerange'], true)) {
-			$formats[] = 'YYYY-MM-DD HH:mm';
-			$formats[] = 'YYYY-MM-DDTHH:mm';
-			$formats[] = 'DD.MM.YYYY HH:mm';
-		}
-
-		return array_values(array_unique($formats));
-	}
-
-	/** @return array<string,string>|null */
-	private function parseDateValue(string $value, string $format): ?array {
-		$tokens = [
-			'YYYY' => '(\\d{4})',
-			'MM' => '(\\d{2})',
-			'DD' => '(\\d{2})',
-			'HH' => '(\\d{2})',
-			'mm' => '(\\d{2})'
-		];
-		$tokenNames = array_keys($tokens);
-		$tokenOrder = [];
-		$pattern = '/^';
-		$index = 0;
-		$length = strlen($format);
-
-		while($index < $length) {
-			$matchedToken = null;
-
-			foreach($tokenNames as $token) {
-				if(substr($format, $index, strlen($token)) === $token) {
-					$matchedToken = $token;
-					break;
-				}
-			}
-
-			if($matchedToken !== null) {
-				$pattern .= $tokens[$matchedToken];
-				$tokenOrder[] = $matchedToken;
-				$index += strlen($matchedToken);
-				continue;
-			}
-
-			$pattern .= preg_quote($format[$index], '/');
-			$index++;
-		}
-
-		$pattern .= '$/';
-
-		if(preg_match($pattern, $value, $matches) !== 1) {
-			return null;
-		}
-
-		$parts = [
-			'YYYY' => '1970',
-			'MM' => '01',
-			'DD' => '01',
-			'HH' => '00',
-			'mm' => '00'
-		];
-
-		foreach($tokenOrder as $position => $token) {
-			$parts[$token] = (string) $matches[$position + 1];
-		}
-
-		$timestamp = mktime((int) $parts['HH'], (int) $parts['mm'], 0, (int) $parts['MM'], (int) $parts['DD'], (int) $parts['YYYY']);
-
-		if($timestamp === false) {
-			return null;
-		}
-
-		if(date('Y', $timestamp) !== $parts['YYYY'] || date('m', $timestamp) !== $parts['MM'] || date('d', $timestamp) !== $parts['DD'] || date('H', $timestamp) !== $parts['HH'] || date('i', $timestamp) !== $parts['mm']) {
-			return null;
-		}
-
-		return $parts;
-	}
-
-	/** @param array<string,string> $parts */
-	private function formatDateValue(array $parts, string $format): string {
-		return str_replace(
-			['YYYY', 'MM', 'DD', 'HH', 'mm'],
-			[$parts['YYYY'], $parts['MM'], $parts['DD'], $parts['HH'], $parts['mm']],
-			$format
-		);
-	}
-
-	/**
-	 * @param array<string,mixed> $definition
-	 */
-	private function isEmptyValue(mixed $value, array $definition): bool {
-		$type = $this->normalizeType((string) ($definition['type'] ?? 'text'));
-		$emptyValue = array_key_exists('emptyValue', $definition)
-			? $this->normalizeValue($definition['emptyValue'], $definition)
-			: $this->getEmptyValue($type);
-
-		if($this->valuesEqual($value, $emptyValue)) {
-			return true;
-		}
-
-		if(is_array($value)) {
-			return count(array_filter($value, fn($entry) => $entry !== '' && $entry !== null && $entry !== [])) === 0;
-		}
-
-		return $value === '' || $value === null;
-	}
-
-	private function valuesEqual(mixed $left, mixed $right): bool {
-		return json_encode($left, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) === json_encode($right, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-	}
-
-	/**
-	 * @param mixed $element
-	 * @param array<string,mixed> $definition
-	 * @return array<string,mixed>|null
-	 */
-	private function buildCondition(mixed $element, mixed $value, array $definition): ?array {
-		$type = $this->normalizeType((string) ($definition['type'] ?? 'text'));
-		$match = $this->normalizeMatch((string) ($definition['match'] ?? ''), $type);
-
-		return match($match) {
-			'equals' => $this->buildBinaryCondition($element, '=', $value),
-			'notEquals' => $this->buildBinaryCondition($element, '<>', $value),
-			'contains' => $this->buildLikeCondition($element, '%' . (string) $value . '%'),
-			'startsWith' => $this->buildLikeCondition($element, (string) $value . '%'),
-			'endsWith' => $this->buildLikeCondition($element, '%' . (string) $value),
-			'in' => $this->buildInCondition($element, $value),
-			'between' => $this->buildBetweenCondition($element, $value),
-			'gt' => $this->buildBinaryCondition($element, '>', $value),
-			'gte' => $this->buildBinaryCondition($element, '>=', $value),
-			'lt' => $this->buildBinaryCondition($element, '<', $value),
-			'lte' => $this->buildBinaryCondition($element, '<=', $value),
-			default => $this->buildLikeCondition($element, '%' . (string) $value . '%')
-		};
-	}
-
-	/** @return array<string,mixed> */
-	private function buildBinaryCondition(mixed $element, string $operator, mixed $value): array {
-		return [
-			'type' => 'op',
-			'operator' => $operator,
-			'params' => [$element, $value]
-		];
-	}
-
-	/** @return array<string,mixed> */
-	private function buildLikeCondition(mixed $element, string $value): array {
-		return $this->buildBinaryCondition($element, 'LIKE', $value);
-	}
-
-	/** @return array<string,mixed>|null */
-	private function buildInCondition(mixed $element, mixed $value): ?array {
-		$values = is_array($value) ? array_values($value) : [$value];
-		$values = array_values(array_filter($values, fn($entry) => $entry !== '' && $entry !== null));
-
-		if(count($values) === 0) {
-			return null;
-		}
-
-		return [
-			'type' => 'op',
-			'operator' => 'IN',
-			'params' => array_merge([$element], $values)
-		];
-	}
-
-	/** @return array<string,mixed>|null */
-	private function buildBetweenCondition(mixed $element, mixed $value): ?array {
-		if(!is_array($value)) {
-			return null;
-		}
-
-		$from = $value['min'] ?? $value['from'] ?? '';
-		$to = $value['max'] ?? $value['to'] ?? '';
-		$conditions = [];
-
-		if($from !== '' && $from !== null) {
-			$conditions[] = $this->buildBinaryCondition($element, '>=', $from);
-		}
-
-		if($to !== '' && $to !== null) {
-			$conditions[] = $this->buildBinaryCondition($element, '<=', $to);
-		}
-
-		if(count($conditions) === 0) {
-			return null;
-		}
-
-		return count($conditions) === 1
-			? $conditions[0]
-			: [
-				'type' => 'op',
-				'operator' => 'AND',
-				'params' => $conditions
-			];
 	}
 }

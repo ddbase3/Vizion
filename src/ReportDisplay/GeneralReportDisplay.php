@@ -19,9 +19,9 @@
 namespace Vizion\ReportDisplay;
 
 use Base3\Api\IDisplay;
-use Base3\Api\IOutput;
 use Base3\Api\IRequest;
 use Base3\Api\IClassMap;
+use Throwable;
 use Vizion\Api\IReportConfigProvider;
 use Vizion\Api\IReportDisplay;
 
@@ -45,6 +45,17 @@ class GeneralReportDisplay implements IReportDisplay {
 	}
 
 	public function getOutput(string $out = 'html', bool $final = false): string {
+		try {
+			return $this->renderReport($out);
+		}
+		catch(Throwable $exception) {
+			return strtolower($out) === 'json'
+				? $this->renderJsonError($exception, $final)
+				: $this->renderHtmlError($exception);
+		}
+	}
+
+	private function renderReport(string $out): string {
 		if (!$this->report) {
 			$this->report = $this->request->get("report");
 			if (!$this->report) {
@@ -62,6 +73,31 @@ class GeneralReportDisplay implements IReportDisplay {
 
 		$display->setData($this->config);
 		return $display->getOutput($out);
+	}
+
+	private function renderJsonError(Throwable $exception, bool $final): string {
+		if($final && !headers_sent()) {
+			header('Content-Type: application/json; charset=utf-8');
+		}
+
+		return (string) json_encode([
+			'ok' => false,
+			'error' => $exception->getMessage(),
+			'data' => [],
+			'rows' => [],
+			'labels' => [],
+			'datasets' => [],
+			'total' => 0
+		], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+	}
+
+	private function renderHtmlError(Throwable $exception): string {
+		$message = htmlspecialchars($exception->getMessage(), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+
+		return '<div class="vizion-report-error" style="border:1px solid #d8a0a0;border-radius:6px;background:#fff5f5;color:#7f1d1d;padding:10px 12px;font-size:13px;">'
+			. '<strong>Report konnte nicht geladen werden.</strong><br>'
+			. $message
+			. '</div>';
 	}
 
 	public function getHelp(): string {

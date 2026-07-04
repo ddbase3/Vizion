@@ -18,6 +18,7 @@
 
 namespace Vizion\ReportDisplay;
 
+use Base3\Api\IAssetResolver;
 use Base3\Api\IDisplay;
 use Base3\Api\IMvcView;
 use Base3\Api\IRequest;
@@ -25,6 +26,7 @@ use Base3\LinkTarget\Api\ILinkTargetService;
 use Base3\Logger\Api\ILogger;
 use ResourceFoundation\Api\IQueryService;
 use ResourceFoundation\Dto\QueryResult;
+use Vizion\Api\IReportCellRendererService;
 use Vizion\Api\IReportFilterService;
 
 class ModularGridReportDisplay implements IDisplay {
@@ -40,7 +42,9 @@ class ModularGridReportDisplay implements IDisplay {
 		private readonly IQueryService $reportqueryservice,
 		private readonly ILogger $logger,
 		private readonly ILinkTargetService $linkTargetService,
-		private readonly IReportFilterService $reportFilterService
+		private readonly IAssetResolver $assetResolver,
+		private readonly IReportFilterService $reportFilterService,
+		private readonly IReportCellRendererService $reportCellRendererService
 	) {}
 
 	public static function getName(): string {
@@ -62,7 +66,23 @@ class ModularGridReportDisplay implements IDisplay {
 	}
 
 	private function getJsonOutput(bool $final = false): string {
-		$response = $this->buildJsonResponse();
+		try {
+			$response = $this->buildJsonResponse();
+		}
+		catch(\Throwable $exception) {
+			$response = [
+				'ok' => false,
+				'error' => $exception->getMessage(),
+				'data' => [],
+				'groups' => [],
+				'page' => 1,
+				'pageSize' => 0,
+				'total' => 0,
+				'totalPages' => 0,
+				'hasMore' => false,
+				'nextCursor' => null
+			];
+		}
 
 		if($final && !headers_sent()) {
 			header('Content-Type: application/json; charset=utf-8');
@@ -167,11 +187,9 @@ class ModularGridReportDisplay implements IDisplay {
 		$this->view->setTemplate('ReportDisplay/ModularGridReportDisplay.php');
 
 		$fields = $this->getFields();
-		$columns = $this->buildColumns($fields);
+		$columns = $this->reportCellRendererService->buildGridColumns($fields);
 		$filterFields = $this->reportFilterService->buildGridFilterFields($fields);
 		$filterInitialValues = $this->reportFilterService->buildInitialFilterValues($fields);
-		$basePath = $this->getBasePath();
-
 		$report = $this->config['report'] ?? '';
 		$ajaxUrl = $this->linkTargetService->getLink(
 			[
@@ -188,8 +206,12 @@ class ModularGridReportDisplay implements IDisplay {
 		$this->view->assign('filterFields', $filterFields);
 		$this->view->assign('filterInitialValues', $filterInitialValues);
 		$this->view->assign('config', $this->config ?? []);
-		$this->view->assign('modulargridCssUrl', $basePath . '/components/Base3/ClientStack/modulargrid/styles/modulargrid.css');
-		$this->view->assign('modulargridJsUrl', $basePath . '/components/Base3/ClientStack/modulargrid/index.js');
+		$this->view->assign('modulargridCssUrl', $this->assetResolver->resolve('plugin/ClientStack/assets/modulargrid/styles/modulargrid.css'));
+		$this->view->assign('modulargridJsUrl', $this->assetResolver->resolve('plugin/ClientStack/assets/modulargrid/index.js'));
+		$this->view->assign('chronoPickerCssUrl', $this->assetResolver->resolve('plugin/ClientStack/assets/chronopicker/styles/chronopicker.css'));
+		$this->view->assign('chronoPickerJsUrl', $this->assetResolver->resolve('plugin/ClientStack/assets/chronopicker/index.js'));
+		$this->view->assign('filterControlsJsUrl', $this->assetResolver->resolve('plugin/Vizion/assets/js/vizion-report-filter-controls.js'));
+		$this->view->assign('cellRenderersJsUrl', $this->assetResolver->resolve('plugin/Vizion/assets/js/vizion-report-cell-renderers.js'));
 
 		return $this->view->loadTemplate();
 	}
@@ -447,42 +469,6 @@ class ModularGridReportDisplay implements IDisplay {
 		return $fieldDefs;
 	}
 
-	/**
-	 * @param array<int, array<string, mixed>> $fields
-	 * @return array<int, array<string, mixed>>
-	 */
-	private function buildColumns(array $fields): array {
-		$columns = [];
-
-		foreach($fields as $field) {
-			if(!isset($field['alias'])) {
-				continue;
-			}
-
-			$config = isset($field['config']) && is_array($field['config']) ? $field['config'] : [];
-			$alias = (string) $field['alias'];
-
-			$column = [
-				'key' => $alias,
-				'label' => (string) ($config['label'] ?? $alias),
-				'visible' => $config['visible'] ?? true,
-				'type' => (string) ($config['type'] ?? 'string'),
-			];
-
-			if(isset($config['width']) && is_numeric($config['width'])) {
-				$column['width'] = (int) $config['width'];
-			}
-
-			if(isset($config['lines']) && is_numeric($config['lines'])) {
-				$column['lines'] = max(1, (int) $config['lines']);
-			}
-
-			$columns[] = $column;
-		}
-
-		return $columns;
-	}
-
 	private function getFieldSortType(string $alias): string {
 		foreach($this->getFields() as $field) {
 			if((string) ($field['alias'] ?? '') !== $alias) {
@@ -495,17 +481,6 @@ class ModularGridReportDisplay implements IDisplay {
 		}
 
 		return 'string';
-	}
-
-	private function getBasePath(): string {
-		$scriptName = (string) ($_SERVER['SCRIPT_NAME'] ?? '');
-		$basePath = rtrim(dirname($scriptName), '/');
-
-		if($basePath === '/' || $basePath === '\\' || $basePath === '.') {
-			return '';
-		}
-
-		return $basePath;
 	}
 
 	public function getHelp(): string {

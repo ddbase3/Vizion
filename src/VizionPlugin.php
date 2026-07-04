@@ -28,7 +28,11 @@ use Vizion\Api\IReportDisplay;
 use Vizion\Service\StaticReportConfigProvider;
 use Vizion\ReportDisplay\GeneralReportDisplay;
 use Vizion\Api\IReportFilterService;
+use Vizion\Api\IReportCellRendererService;
+use Vizion\Api\IReportChartService;
 use Vizion\Filter\ReportFilterService;
+use Vizion\Renderer\ReportCellRendererService;
+use Vizion\Chart\ReportChartService;
 
 class VizionPlugin implements IPlugin, ICheck {
 
@@ -53,7 +57,20 @@ class VizionPlugin implements IPlugin, ICheck {
 
 			->set(
 				IReportFilterService::class,
-				fn() => new ReportFilterService(),
+				fn($c) => new ReportFilterService($c->get(IClassMap::class)),
+				IContainer::SHARED | IContainer::NOOVERWRITE)
+
+			->set(
+				IReportCellRendererService::class,
+				fn($c) => new ReportCellRendererService($c->get(IClassMap::class)),
+				IContainer::SHARED | IContainer::NOOVERWRITE)
+
+			->set(
+				IReportChartService::class,
+				fn($c) => new ReportChartService(
+					$c->get(IClassMap::class),
+					$c->get(IReportFilterService::class),
+					$c->get(IReportCellRendererService::class)),
 				IContainer::SHARED | IContainer::NOOVERWRITE)
 
 			->set(

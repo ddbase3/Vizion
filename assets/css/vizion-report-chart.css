@@ -1,0 +1,85 @@
+.vizion-chart-report-shell {
+	width: 100%;
+	max-width: 100%;
+}
+
+.vizion-chart-filter-shell {
+	width: 100%;
+	max-width: 100%;
+	margin-bottom: 10px;
+}
+
+.vizion-chart-filter-panel {
+	display: flex;
+	align-items: center;
+	flex-wrap: nowrap;
+	gap: 8px;
+	min-width: 0;
+	width: 100%;
+	padding: 8px 10px;
+	border: 1px solid #e2e2e2;
+	border-radius: 8px;
+	background: #fff;
+	overflow-x: auto;
+}
+
+.vizion-chart-filter-panel + .vizion-chart-filter-panel {
+	margin-top: 6px;
+}
+
+.vizion-chart-filter-panel-filters {
+	overflow-x: auto;
+}
+
+.vizion-chart-filter-panel .mg-control-group,
+.vizion-chart-filter-panel .mg-compact-filters,
+.vizion-chart-filter-panel .mg-compact-filter-list,
+.vizion-chart-filter-panel .mg-compact-filter-picker {
+	flex-wrap: nowrap;
+	align-items: center;
+}
+
+.vizion-chart-filter-panel .mg-label {
+	white-space: nowrap;
+}
+
+.vizion-chart-filter-panel .mg-input,
+.vizion-chart-filter-panel .mg-select,
+.vizion-chart-filter-panel .mg-button {
+	min-height: 28px;
+	font-size: 13px;
+}
+
+.vizion-chart-filter-state-view {
+	display: none;
+}
+
+.vizion-chart-panel {
+	position: relative;
+	min-height: 420px;
+	padding: 12px;
+	border: 1px solid #e2e2e2;
+	border-radius: 8px;
+	background: #fff;
+}
+
+.vizion-chart-canvas {
+	width: 100%;
+	height: 420px;
+}
+
+.vizion-chart-log {
+	margin-top: 10px;
+	font-size: 13px;
+	color: #555;
+}
+
+@media (max-width: 720px) {
+	.vizion-chart-panel {
+		min-height: 320px;
+	}
+
+	.vizion-chart-canvas {
+		height: 320px;
+	}
+}
