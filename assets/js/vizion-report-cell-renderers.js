@@ -112,16 +112,6 @@ function formatEnum(value, formatter) {
 	return String(match && typeof match === 'object' ? (match.label ?? match.value ?? '') : match);
 }
 
-function extractEmail(value) {
-	if (value === null || value === undefined || typeof value === 'object') {
-		return '';
-	}
-
-	const match = String(value).match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
-
-	return match ? match[0] : '';
-}
-
 function formatValue(value, column = {}) {
 	if (value === null || value === undefined || value === '') {
 		return '—';
@@ -129,10 +119,6 @@ function formatValue(value, column = {}) {
 
 	const formatter = column.formatter || {};
 	const formatterType = String(formatter.type || column.type || '').toLowerCase();
-
-	if (formatterType === 'email') {
-		return getText(value, formatter.placeholder || '—');
-	}
 
 	if (formatterType === 'enum') {
 		return formatEnum(value, formatter);
@@ -217,98 +203,19 @@ function createTextElement(text, column = {}) {
 	return wrapper;
 }
 
-function createTextValue(context) {
-	return createTextElement(formatValue(context.value, context.column), context.column);
-}
+function createHtmlElement(html, column = {}) {
+	const wrapper = createTextElement('', column);
+	wrapper.innerHTML = String(html ?? '');
 
-function createEmailLinkValue(context) {
-	const email = extractEmail(context.value);
-
-	if (!email) {
-		return createTextValue(context);
-	}
-
-	const link = document.createElement('a');
-	link.className = 'vizion-modulargrid-cell vizion-modulargrid-cell-email-link';
-	link.href = 'mailto:' + email;
-	link.textContent = formatValue(context.value, context.column);
-
-	return link;
-}
-
-function createValueColumn(context) {
-	return context.renderValue(context.value, context.row, context.column);
-}
-
-const valueRenderers = new Map();
-const columnRenderers = new Map();
-const rowRenderers = new Map();
-
-function normalizeKey(key) {
-	return String(key || '').trim();
-}
-
-function registerValueRenderer(key, renderer) {
-	key = normalizeKey(key);
-
-	if (key && typeof renderer === 'function') {
-		valueRenderers.set(key, renderer);
-	}
-}
-
-function registerColumnRenderer(key, renderer) {
-	key = normalizeKey(key);
-
-	if (key && typeof renderer === 'function') {
-		columnRenderers.set(key, renderer);
-	}
-}
-
-function registerRowRenderer(key, renderer) {
-	key = normalizeKey(key);
-
-	if (key && typeof renderer === 'function') {
-		rowRenderers.set(key, renderer);
-	}
-}
-
-function getValueRenderer(key) {
-	return valueRenderers.get(normalizeKey(key)) || valueRenderers.get('vizion.value.text');
-}
-
-function getColumnRenderer(key) {
-	return columnRenderers.get(normalizeKey(key)) || columnRenderers.get('vizion.column.value');
-}
-
-function renderValue(value, row, column = {}) {
-	const renderer = getValueRenderer(column.valueRendererKey || 'vizion.value.text');
-
-	return renderer({
-		value,
-		row,
-		column,
-		config: column.valueRendererConfig || {},
-		formatValue,
-		getRowValue,
-		createTextElement,
-		createTextValue
-	});
+	return wrapper;
 }
 
 function renderCell(value, row, column = {}) {
-	const renderer = getColumnRenderer(column.columnRendererKey || 'vizion.column.value');
+	if (column.html) {
+		return createHtmlElement(value, column);
+	}
 
-	return renderer({
-		value,
-		row,
-		column,
-		config: column.columnRendererConfig || {},
-		renderValue,
-		formatValue,
-		getRowValue,
-		createTextElement,
-		createTextValue
-	});
+	return createTextElement(formatValue(value, column), column);
 }
 
 function buildColumns(columns) {
@@ -337,21 +244,12 @@ function buildColumns(columns) {
 	});
 }
 
-registerValueRenderer('vizion.value.text', createTextValue);
-registerValueRenderer('vizion.value.emailLink', createEmailLinkValue);
-registerColumnRenderer('vizion.column.value', createValueColumn);
-
 export function createReportCellRendererTools() {
 	return {
 		buildColumns,
 		formatValue,
 		renderCell,
-		renderValue,
-		registerValueRenderer,
-		registerColumnRenderer,
-		registerRowRenderer,
 		getRowValue,
-		createTextElement,
-		createTextValue
+		createTextElement
 	};
 }

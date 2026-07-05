@@ -220,15 +220,6 @@
 		KeyboardPlugin: chronoPickerModule.KeyboardPlugin
 	});
 	const reportCellTools = cellRenderersModule.createReportCellRendererTools();
-	const RENDERER_ASSET_URLS = <?php echo $json($this->_['rendererAssetUrls'] ?? []); ?>;
-
-	for (const rendererAssetUrl of RENDERER_ASSET_URLS) {
-		const rendererModule = await import(new URL(rendererAssetUrl, document.baseURI).href);
-
-		if (rendererModule && typeof rendererModule.registerReportRenderers === 'function') {
-			rendererModule.registerReportRenderers(reportCellTools);
-		}
-	}
 
 	const ENDPOINT_URL = <?php echo $json((string) $this->_['ajaxUrl']); ?>;
 	const GRID_SELECTOR = <?php echo $json('#' . $gridId); ?>;
@@ -313,7 +304,7 @@
 
 			const value = document.createElement('div');
 			value.className = 'mg-row-detail-value';
-			value.textContent = reportCellTools.formatValue(row[column.key], column);
+			value.textContent = reportCellTools.getRenderedText(row, column, row[column.key]);
 
 			field.appendChild(label);
 			field.appendChild(value);

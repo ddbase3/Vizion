@@ -4,41 +4,35 @@ namespace Vizion\Renderer\Value;
 
 use Vizion\Api\IReportValueRenderer;
 
-/**
- * Default renderer for one formatted text value.
- */
 final class TextValueRenderer implements IReportValueRenderer {
 
 	public static function getName(): string {
 		return 'textvaluerenderer';
 	}
 
-	public function getRendererType(): string {
-		return 'text';
+	public function renderValue(mixed $value, array $row, array $field, array $rendererConfig): string {
+		return $this->stringValue($value, (string)($rendererConfig['placeholder'] ?? '—'));
 	}
 
-	public function getAliases(): array {
-		return ['default', 'string', 'plain'];
+	public function rendersHtml(): bool {
+		return false;
 	}
 
-	public function getClientRendererKey(array $rendererConfig): string {
-		return 'vizion.value.text';
-	}
+	private function stringValue(mixed $value, string $placeholder): string {
+		if($value === null || $value === '') {
+			return $placeholder;
+		}
 
-	public function getAssetPaths(array $rendererConfig): array {
-		return [];
-	}
+		if(is_bool($value)) {
+			return $value ? 'true' : 'false';
+		}
 
-	public function configureValue(array $column, array $field, array $rendererConfig): array {
-		$column['valueRendererConfig'] = $this->extractRendererConfig($rendererConfig);
+		if(is_scalar($value)) {
+			return (string)$value;
+		}
 
-		return $column;
-	}
+		$json = json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 
-	/** @return array<string,mixed> */
-	private function extractRendererConfig(array $rendererConfig): array {
-		unset($rendererConfig['type']);
-
-		return $rendererConfig;
+		return is_string($json) && $json !== '' ? $json : $placeholder;
 	}
 }

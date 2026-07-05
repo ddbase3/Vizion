@@ -4,41 +4,48 @@ namespace Vizion\Renderer\Value;
 
 use Vizion\Api\IReportValueRenderer;
 
-/**
- * Renders one email-like value as a mailto link when an address is present.
- */
 final class EmailLinkValueRenderer implements IReportValueRenderer {
 
 	public static function getName(): string {
 		return 'emaillinkvaluerenderer';
 	}
 
-	public function getRendererType(): string {
-		return 'email-link';
+	public function renderValue(mixed $value, array $row, array $field, array $rendererConfig): string {
+		$text = $this->stringValue($value, (string)($rendererConfig['placeholder'] ?? '—'));
+		$email = $this->extractEmail($text);
+
+		if($email === '') {
+			return $this->escape($text);
+		}
+
+		return '<a class="vizion-modulargrid-cell-email-link" href="mailto:' . $this->escapeAttribute($email) . '">' . $this->escape($text) . '</a>';
 	}
 
-	public function getAliases(): array {
-		return ['emaillink', 'email', 'mail', 'mailto'];
+	public function rendersHtml(): bool {
+		return true;
 	}
 
-	public function getClientRendererKey(array $rendererConfig): string {
-		return 'vizion.value.emailLink';
+	private function extractEmail(string $value): string {
+		if(preg_match('/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i', $value, $matches) !== 1) {
+			return '';
+		}
+
+		return $matches[0];
 	}
 
-	public function getAssetPaths(array $rendererConfig): array {
-		return [];
+	private function stringValue(mixed $value, string $placeholder): string {
+		if($value === null || $value === '') {
+			return $placeholder;
+		}
+
+		return is_scalar($value) ? (string)$value : $placeholder;
 	}
 
-	public function configureValue(array $column, array $field, array $rendererConfig): array {
-		$column['valueRendererConfig'] = $this->extractRendererConfig($rendererConfig);
-
-		return $column;
+	private function escape(string $value): string {
+		return htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 	}
 
-	/** @return array<string,mixed> */
-	private function extractRendererConfig(array $rendererConfig): array {
-		unset($rendererConfig['type']);
-
-		return $rendererConfig;
+	private function escapeAttribute(string $value): string {
+		return htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 	}
 }

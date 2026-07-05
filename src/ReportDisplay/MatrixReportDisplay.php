@@ -63,10 +63,6 @@ final class MatrixReportDisplay implements IDisplay {
 		$this->view->setPath(DIR_PLUGIN . 'Vizion');
 		$this->view->setTemplate('ReportDisplay/MatrixReportDisplay.php');
 		$columns = $this->reportCellRendererService->buildGridColumns($this->getFields());
-		$rendererAssetUrls = array_map(
-			fn(string $path): string => $this->assetResolver->resolve($path),
-			$this->reportCellRendererService->collectGridRendererAssetPaths($columns)
-		);
 		$columns = $this->reportCellRendererService->stripInternalGridColumnMetadata($columns);
 
 		$this->view->assign('ajaxUrl', $this->linkTargetService->getLink([
@@ -76,7 +72,6 @@ final class MatrixReportDisplay implements IDisplay {
 			'report' => $report
 		]));
 		$this->view->assign('columns', $columns);
-		$this->view->assign('rendererAssetUrls', $rendererAssetUrls);
 		$this->view->assign('filterFields', $this->reportFilterService->buildGridFilterFields($this->getFields()));
 		$this->view->assign('filterInitialValues', $this->reportFilterService->buildInitialFilterValues($this->getFields()));
 		$this->view->assign('config', $config);
@@ -171,6 +166,8 @@ final class MatrixReportDisplay implements IDisplay {
 			$row['__row_key'] = $this->buildRowKey($row, $offset + $index + 1);
 			$rows[] = $row;
 		}
+
+		$rows = $this->reportCellRendererService->renderGridRows($rows, $fields);
 
 		return [
 			'ok' => true,
