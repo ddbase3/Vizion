@@ -28,6 +28,8 @@ class DataHawkSchemaDisplay implements IDisplay {
 
 	private $displayData;
 
+	private array $translations = [];
+
 	public function __construct(
 		private readonly IMvcView $view,
 		private readonly IQuerySchemaProvider $queryschemaprovider,
@@ -49,6 +51,7 @@ class DataHawkSchemaDisplay implements IDisplay {
 	// Implementation of IOutput
 
 	public function getOutput(string $out = 'html', bool $final = false): string {
+		$this->loadTranslations();
 
 		$data = ['data' => [], 'foreignKeys' => []];
 		$schema = $this->queryschemaprovider->getSchema();
@@ -99,10 +102,31 @@ class DataHawkSchemaDisplay implements IDisplay {
 		$this->view->setTemplate('Display/DataHawkSchemaDisplay.php');
 		$this->view->assign('data', $data);
 		$this->view->assign('resolve', fn($src) => $this->assetResolver->resolve($src));
+		$this->view->assign('translations', $this->translations);
 		return $this->view->loadTemplate();
 	}
 
+
+	private function loadTranslations(): void {
+		$this->view->setPath(DIR_PLUGIN . 'Vizion');
+		$this->view->loadBricks('Display');
+
+		$translations = $this->view->getBricks('vizion_report_display');
+		$this->translations = is_array($translations) ? $translations : [];
+	}
+
+	private function t(string $key, string $fallback, mixed ...$values): string {
+		$text = trim((string)($this->translations[$key] ?? ''));
+		if ($text === '') {
+			$text = $fallback;
+		}
+
+		return $values === [] ? $text : vsprintf($text, $values);
+	}
+
 	public function getHelp(): string {
-		return 'Help of DataHawkSchemaDisplay';
+		$this->loadTranslations();
+
+		return $this->t('help_schema', 'Displays the DataHawk schema as an interactive database diagram.');
 	}
 }

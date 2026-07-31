@@ -6,6 +6,7 @@ use PHPUnit\Framework\TestCase;
 use Vizion\ReportDisplay\GeneralReportDisplay;
 use Base3\Api\IRequest;
 use Base3\Api\IDisplay;
+use Base3\Translation\Api\ITranslation;
 use Base3\Test\Core\ClassMapStub;
 use Vizion\Api\IReportConfigProvider;
 
@@ -20,7 +21,7 @@ final class GeneralReportDisplayTest extends TestCase {
 		$classmap = new ClassMapStub();
 		$configProvider = $this->createStub(IReportConfigProvider::class);
 
-		$display = new GeneralReportDisplay($req, $classmap, $configProvider);
+		$display = new GeneralReportDisplay($req, $classmap, $configProvider, $this->createTranslation());
 
 		$this->assertSame(
 			'Displays a report based on the configured display type and configuration provider.',
@@ -43,7 +44,7 @@ final class GeneralReportDisplayTest extends TestCase {
 		$classmap->registerInterface(IDisplay::class, DataTableReportDisplayStub::class);
 		$classmap->registerName('datatablereportdisplay', DataTableReportDisplayStub::class);
 
-		$display = new GeneralReportDisplay($req, $classmap, $configProvider);
+		$display = new GeneralReportDisplay($req, $classmap, $configProvider, $this->createTranslation());
 		$display->setData('r1');
 
 		$out = $display->getOutput('json');
@@ -85,7 +86,7 @@ final class GeneralReportDisplayTest extends TestCase {
 		$classmap->registerInterface(IDisplay::class, DataTableReportDisplayStub::class);
 		$classmap->registerName('datatablereportdisplay', DataTableReportDisplayStub::class);
 
-		$display = new GeneralReportDisplay($req, $classmap, $configProvider);
+		$display = new GeneralReportDisplay($req, $classmap, $configProvider, $this->createTranslation());
 
 		$this->assertSame('OK', $display->getOutput('html'));
 	}
@@ -97,7 +98,7 @@ final class GeneralReportDisplayTest extends TestCase {
 		$classmap = new ClassMapStub();
 		$configProvider = $this->createStub(IReportConfigProvider::class);
 
-		$display = new GeneralReportDisplay($req, $classmap, $configProvider);
+		$display = new GeneralReportDisplay($req, $classmap, $configProvider, $this->createTranslation());
 
 		$this->expectException(\Exception::class);
 		$this->expectExceptionMessage('Missing report identifier');
@@ -116,13 +117,22 @@ final class GeneralReportDisplayTest extends TestCase {
 
 		$classmap = new ClassMapStub(); // no registrations => invalid display
 
-		$display = new GeneralReportDisplay($req, $classmap, $configProvider);
+		$display = new GeneralReportDisplay($req, $classmap, $configProvider, $this->createTranslation());
 
 		$this->expectException(\Exception::class);
 		$this->expectExceptionMessage('Invalid display: nope');
 
 		$display->getOutput('html');
 	}
+	private function createTranslation(): ITranslation {
+		$translation = $this->createStub(ITranslation::class);
+		$translation->method('translate')->willReturnCallback(
+			static fn(string $set, string $section, string $key, string $fallback = ''): string => $fallback
+		);
+
+		return $translation;
+	}
+
 }
 
 final class DataTableReportDisplayStub implements IDisplay {

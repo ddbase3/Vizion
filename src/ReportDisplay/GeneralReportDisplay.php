@@ -21,6 +21,7 @@ namespace Vizion\ReportDisplay;
 use Base3\Api\IDisplay;
 use Base3\Api\IRequest;
 use Base3\Api\IClassMap;
+use Base3\Translation\Api\ITranslation;
 use Throwable;
 use Vizion\Api\IReportConfigProvider;
 use Vizion\Api\IReportDisplay;
@@ -33,7 +34,8 @@ class GeneralReportDisplay implements IReportDisplay {
 	public function __construct(
 		protected readonly IRequest $request,
 		protected readonly IClassMap $classmap,
-		protected readonly IReportConfigProvider $configProvider
+		protected readonly IReportConfigProvider $configProvider,
+		protected readonly ITranslation $translation
 	) {}
 
 	public static function getName(): string {
@@ -59,7 +61,7 @@ class GeneralReportDisplay implements IReportDisplay {
 		if (!$this->report) {
 			$this->report = $this->request->get("report");
 			if (!$this->report) {
-				throw new \Exception("Missing report identifier");
+				throw new \Exception($this->t('error_missing_report_identifier', 'Missing report identifier'));
 			}
 		}
 
@@ -69,7 +71,7 @@ class GeneralReportDisplay implements IReportDisplay {
 
 		/** @var IDisplay $display */
 		$display = $this->classmap->getInstanceByInterfaceName(IDisplay::class, $displayName);
-		if (!$display) throw new \Exception("Invalid display: $displayName");
+		if (!$display) throw new \Exception($this->t('error_invalid_display', 'Invalid display: %s', $displayName));
 
 		$display->setData($this->config);
 		return $display->getOutput($out);
@@ -95,12 +97,19 @@ class GeneralReportDisplay implements IReportDisplay {
 		$message = htmlspecialchars($exception->getMessage(), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 
 		return '<div class="vizion-report-error" style="border:1px solid #d8a0a0;border-radius:6px;background:#fff5f5;color:#7f1d1d;padding:10px 12px;font-size:13px;">'
-			. '<strong>Report konnte nicht geladen werden.</strong><br>'
+			. '<strong>' . htmlspecialchars($this->t('report_load_failed', 'Report could not be loaded.'), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '</strong><br>'
 			. $message
 			. '</div>';
 	}
 
+
+	private function t(string $key, string $fallback, mixed ...$values): string {
+		$text = $this->translation->translate('Display', 'vizion_report_display', $key, $fallback);
+
+		return $values === [] ? $text : vsprintf($text, $values);
+	}
+
 	public function getHelp(): string {
-		return "Displays a report based on the configured display type and configuration provider.";
+		return $this->t('help_general', 'Displays a report based on the configured display type and configuration provider.');
 	}
 }

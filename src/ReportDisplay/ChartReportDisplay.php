@@ -16,6 +16,8 @@ final class ChartReportDisplay implements IDisplay {
 	/** @var array<string,mixed>|null */
 	private ?array $config = null;
 
+	private array $translations = [];
+
 	public function __construct(
 		private readonly IMvcView $view,
 		private readonly IRequest $request,
@@ -35,6 +37,7 @@ final class ChartReportDisplay implements IDisplay {
 	}
 
 	public function getOutput(string $out = 'html', bool $final = false): string {
+		$this->loadTranslations();
 		return strtolower($out) === 'json'
 			? $this->getJsonOutput($final)
 			: $this->getHtmlOutput();
@@ -68,6 +71,7 @@ final class ChartReportDisplay implements IDisplay {
 		$this->view->assign('chartToolsJsUrl', $this->assetResolver->resolve('plugin/Vizion/assets/js/vizion-report-chart.js'));
 		$this->view->assign('chartCssUrl', $this->assetResolver->resolve('plugin/Vizion/assets/css/vizion-report-chart.css'));
 
+		$this->view->assign('translations', $this->translations);
 		return $this->view->loadTemplate();
 	}
 
@@ -128,7 +132,27 @@ final class ChartReportDisplay implements IDisplay {
 		return is_array($fields) ? $fields : [];
 	}
 
+
+	private function loadTranslations(): void {
+		$this->view->setPath(DIR_PLUGIN . 'Vizion');
+		$this->view->loadBricks('Display');
+
+		$translations = $this->view->getBricks('vizion_report_display');
+		$this->translations = is_array($translations) ? $translations : [];
+	}
+
+	private function t(string $key, string $fallback, mixed ...$values): string {
+		$text = trim((string)($this->translations[$key] ?? ''));
+		if ($text === '') {
+			$text = $fallback;
+		}
+
+		return $values === [] ? $text : vsprintf($text, $values);
+	}
+
 	public function getHelp(): string {
-		return 'Displays a Vizion report as a Chart.js chart with shared Vizion filters.';
+		$this->loadTranslations();
+
+		return $this->t('help_chart', 'Displays a Vizion report as a Chart.js chart with shared Vizion filters.');
 	}
 }

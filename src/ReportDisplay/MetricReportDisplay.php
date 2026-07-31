@@ -38,6 +38,8 @@ final class MetricReportDisplay implements IDisplay {
 	/** @var array<string,mixed>|null */
 	private ?array $config = null;
 
+	private array $translations = [];
+
 	public function __construct(
 		private readonly IMvcView $view,
 		private readonly IQueryService $queryService,
@@ -53,6 +55,7 @@ final class MetricReportDisplay implements IDisplay {
 	}
 
 	public function getOutput(string $out = 'html', bool $final = false): string {
+		$this->loadTranslations();
 		$payload = $this->buildPayload();
 
 		if(strtolower($out) === 'json') {
@@ -72,6 +75,7 @@ final class MetricReportDisplay implements IDisplay {
 		$this->view->assign('metrics', $payload['metrics']);
 		$this->view->assign('metricCssUrl', $this->assetResolver->resolve('plugin/Vizion/assets/css/vizion-metric-report.css'));
 
+		$this->view->assign('translations', $this->translations);
 		return $this->view->loadTemplate();
 	}
 
@@ -136,7 +140,7 @@ final class MetricReportDisplay implements IDisplay {
 		$schema = trim((string) ($query['schema'] ?? $metric['schema'] ?? $config['schema'] ?? ''));
 
 		if($table === '') {
-			throw new \RuntimeException('Metric query requires a table.');
+			throw new \RuntimeException($this->t('error_metric_requires_table', 'Metric query requires a table.'));
 		}
 
 		$query['type'] = (string) ($query['type'] ?? 'select');
@@ -301,7 +305,27 @@ final class MetricReportDisplay implements IDisplay {
 		return $this->config ?? [];
 	}
 
+
+	private function loadTranslations(): void {
+		$this->view->setPath(DIR_PLUGIN . 'Vizion');
+		$this->view->loadBricks('Display');
+
+		$translations = $this->view->getBricks('vizion_report_display');
+		$this->translations = is_array($translations) ? $translations : [];
+	}
+
+	private function t(string $key, string $fallback, mixed ...$values): string {
+		$text = trim((string)($this->translations[$key] ?? ''));
+		if ($text === '') {
+			$text = $fallback;
+		}
+
+		return $values === [] ? $text : vsprintf($text, $values);
+	}
+
 	public function getHelp(): string {
-		return 'Displays a compact row of metric cards backed by structured Resource/DataHawk queries.';
+		$this->loadTranslations();
+
+		return $this->t('help_metric', 'Displays a compact row of metric cards backed by structured Resource/DataHawk queries.');
 	}
 }

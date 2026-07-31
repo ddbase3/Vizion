@@ -23,6 +23,7 @@ use Base3\Api\IClassMap;
 use Base3\Api\IContainer;
 use Base3\Api\IPlugin;
 use Base3\Api\IRequest;
+use Base3\Translation\Api\ITranslation;
 use Vizion\Api\IReportConfigProvider;
 use Vizion\Api\IReportDisplay;
 use Vizion\Service\StaticReportConfigProvider;
@@ -52,7 +53,7 @@ class VizionPlugin implements IPlugin, ICheck {
 
 			->set(
 				IReportConfigProvider::class,
-				fn() => new StaticReportConfigProvider(),
+				fn($c) => new StaticReportConfigProvider($c->get(ITranslation::class)),
 				IContainer::SHARED | IContainer::NOOVERWRITE)
 
 			->set(
@@ -78,7 +79,8 @@ class VizionPlugin implements IPlugin, ICheck {
 				fn($c) => new GeneralReportDisplay(
 					$c->get(IRequest::class),
 					$c->get(IClassMap::class),
-					$c->get(IReportConfigProvider::class)),
+					$c->get(IReportConfigProvider::class),
+					$c->get(ITranslation::class)),
 				IContainer::SHARED | IContainer::NOOVERWRITE);
 	}
 

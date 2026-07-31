@@ -3,6 +3,7 @@
 namespace Vizion\ReportDisplay;
 
 use Base3\Api\IDisplay;
+use Base3\Translation\Api\ITranslation;
 use ResourceFoundation\Api\IQueryService;
 use Throwable;
 
@@ -18,7 +19,8 @@ final class MatrixTableReportDisplay implements IDisplay {
 	private array $payload = [];
 
 	public function __construct(
-		private readonly IQueryService $queryService
+		private readonly IQueryService $queryService,
+		private readonly ITranslation $translation
 	) {}
 
 	public static function getName(): string {
@@ -45,13 +47,13 @@ final class MatrixTableReportDisplay implements IDisplay {
 			$mainId = $this->getMainId();
 
 			if($mainId <= 0) {
-				return ['ok' => false, 'found' => false, 'error' => 'Missing matrix detail parameter.'];
+				return ['ok' => false, 'found' => false, 'error' => $this->t('error_missing_matrix_detail', 'Missing matrix detail parameter.')];
 			}
 
 			$headline = $this->loadHeadline($mainId);
 
 			if($headline === null) {
-				return ['ok' => true, 'found' => false, 'error' => 'Matrix headline row not found.'];
+				return ['ok' => true, 'found' => false, 'error' => $this->t('error_matrix_headline_not_found', 'Matrix headline row not found.')];
 			}
 
 			$columns = $this->loadColumns($mainId);
@@ -295,7 +297,7 @@ final class MatrixTableReportDisplay implements IDisplay {
 
 	/** @param array<string,mixed> $headline */
 	private function buildSummary(array $headline, int $rowCount, int $columnCount): string {
-		$template = (string) ($this->detail['summary'] ?? '{rows} rows, {columns} columns');
+		$template = (string) ($this->detail['summary'] ?? $this->t('matrix_summary', '{rows} rows, {columns} columns'));
 		$values = [
 			'{rows}' => (string) $rowCount,
 			'{columns}' => (string) $columnCount
@@ -370,7 +372,14 @@ final class MatrixTableReportDisplay implements IDisplay {
 		return rtrim(rtrim(number_format((float) $value, 2, '.', ''), '0'), '.') . ' %';
 	}
 
+
+	private function t(string $key, string $fallback, mixed ...$values): string {
+		$text = $this->translation->translate('Display', 'vizion_report_display', $key, $fallback);
+
+		return $values === [] ? $text : vsprintf($text, $values);
+	}
+
 	public function getHelp(): string {
-		return 'Renders a matrix detail subreport as a JSON payload for a parent matrix report.';
+		return $this->t('help_matrix_table', 'Renders a matrix detail subreport as a JSON payload for a parent matrix report.');
 	}
 }

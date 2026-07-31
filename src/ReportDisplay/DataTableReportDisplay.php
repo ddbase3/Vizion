@@ -33,6 +33,8 @@ class DataTableReportDisplay implements IDisplay {
 
         private $logSql = true;
 
+	private array $translations = [];
+
         public function __construct(
                 private readonly IMvcView $view,
                 private readonly IQueryService $reportqueryservice,
@@ -53,6 +55,8 @@ class DataTableReportDisplay implements IDisplay {
         }
 
         public function getOutput(string $out = 'html', bool $final = false): string {
+                $this->loadTranslations();
+
                 return $out === "json"
                         ? $this->getJsonOutput()
                         : $this->getHtmlOutput();
@@ -204,7 +208,26 @@ class DataTableReportDisplay implements IDisplay {
                 return $this->view->loadTemplate();
         }
 
+        private function loadTranslations(): void {
+                $this->view->setPath(DIR_PLUGIN . 'Vizion');
+                $this->view->loadBricks('Display');
+
+                $translations = $this->view->getBricks('vizion_report_display');
+                $this->translations = is_array($translations) ? $translations : [];
+        }
+
+        private function t(string $key, string $fallback, mixed ...$values): string {
+                $text = trim((string)($this->translations[$key] ?? ''));
+                if ($text === '') {
+                        $text = $fallback;
+                }
+
+                return $values === [] ? $text : vsprintf($text, $values);
+        }
+
         public function getHelp(): string {
-                return "Displays data as a jQuery DataTable using the Vizion ReportDisplay system.";
+                $this->loadTranslations();
+
+                return $this->t('help_datatable', 'Displays data as a jQuery DataTable using the Vizion ReportDisplay system.');
         }
 }

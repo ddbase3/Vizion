@@ -8,6 +8,7 @@
 			JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR
 		);
 	};
+	$translations = is_array($this->_['translations'] ?? null) ? $this->_['translations'] : [];
 ?>
 <link rel="stylesheet" href="<?php echo htmlspecialchars((string) $this->_['modulargridCssUrl'], ENT_QUOTES); ?>" />
 <link rel="stylesheet" href="<?php echo htmlspecialchars((string) $this->_['chronoPickerCssUrl'], ENT_QUOTES); ?>" />
@@ -228,6 +229,12 @@
 	const FILTER_FIELDS = <?php echo $json($this->_['filterFields']); ?>;
 	const FILTER_INITIAL_VALUES = <?php echo $json($this->_['filterInitialValues']); ?>;
 	const REPORT_CONFIG = <?php echo $json($this->_['config']); ?>;
+	const TRANSLATIONS = <?php echo $json($translations); ?>;
+
+	function tr(key, fallback) {
+		const value = String(TRANSLATIONS[key] || '').trim();
+		return value !== '' ? value : fallback;
+	}
 	const BATCH_SIZE = Number(REPORT_CONFIG?.config?.pageSize || 50);
 
 	function createShortHash(value) {
@@ -269,7 +276,7 @@
 			return;
 		}
 
-		logElement.innerHTML = '<strong>Last action:</strong> ' + message;
+		logElement.innerHTML = '<strong>' + tr('last_action', 'Last action:') + '</strong> ' + message;
 	}
 
 	function getText(value, placeholder = '—') {
@@ -363,15 +370,15 @@
 
 	async function copyReportRow(row) {
 		if (!row) {
-			setLog('Kein Datensatz zum Kopieren vorhanden.');
+			setLog(tr('no_record_to_copy', 'No record is available to copy.'));
 			return;
 		}
 
 		try {
 			await copyPayloadToClipboard(createClipboardRecord(row));
-			setLog('Datensatz ' + getText(row.__row_key, '') + ' wurde in die Zwischenablage kopiert.');
+			setLog(tr('record_copied', 'Record %s was copied to the clipboard.').replace('%s', getText(row.__row_key, '')));
 		} catch (error) {
-			setLog('Datensatz konnte nicht kopiert werden: ' + getText(error && error.message, String(error)));
+			setLog(tr('record_copy_failed', 'The record could not be copied: %s').replace('%s', getText(error && error.message, String(error))));
 		}
 	}
 
@@ -379,15 +386,15 @@
 		const rows = Array.isArray(selectedRows) ? selectedRows : [];
 
 		if (rows.length === 0) {
-			setLog('Keine ausgewählten Datensätze zum Kopieren vorhanden.');
+			setLog(tr('no_selected_records_to_copy', 'No selected records are available to copy.'));
 			return;
 		}
 
 		try {
 			await copyPayloadToClipboard(rows.map(createClipboardRecord));
-			setLog(String(rows.length) + ' ausgewählte Datensätze wurden in die Zwischenablage kopiert.');
+			setLog(tr('selected_records_copied', '%s selected records were copied to the clipboard.').replace('%s', String(rows.length)));
 		} catch (error) {
-			setLog('Ausgewählte Datensätze konnten nicht kopiert werden: ' + getText(error && error.message, String(error)));
+			setLog(tr('selected_records_copy_failed', 'The selected records could not be copied: %s').replace('%s', getText(error && error.message, String(error))));
 		}
 	}
 
@@ -453,7 +460,7 @@
 				InfiniteScrollPlugin
 			],
 			pluginOptions: {
-				search: { zone: 'topLine1', order: 10, label: 'Search', placeholder: 'Search report rows' },
+				search: { zone: 'topLine1', order: 10, label: tr('search', 'Search'), placeholder: tr('search_report_rows', 'Search report rows') },
 				compactFilters: {
 					zone: 'topLine2',
 					order: 10,
@@ -461,10 +468,10 @@
 					visibilityStateKey: 'filterVisibility',
 					showClearButton: true,
 					addLabel: '',
-					addPlaceholder: 'Filter wählen',
+					addPlaceholder: tr('choose_filter', 'Choose filter'),
 					pickerWidth: 145,
 					pickerMinWidth: 145,
-					clearLabel: 'Filter löschen',
+					clearLabel: tr('clear_filters', 'Clear filters'),
 					fields: reportFilterTools.buildGridFilterFields(FILTER_FIELDS),
 					initialValues: FILTER_INITIAL_VALUES
 				},
@@ -474,22 +481,22 @@
 					zone: 'topLine1',
 					order: 30,
 					rowIdKey: '__row_key',
-					selectedLabel: 'Ausgewählt',
-					emptyText: 'Keine Auswahl',
+					selectedLabel: tr('selected', 'Selected'),
+					emptyText: tr('no_selection', 'No selection'),
 					items: [
-						{ key: 'copy-selected-clipboard', label: 'Auswahl kopieren', onClick(context) { copySelectedReportRows(context.selectedRows || []); } },
-						{ key: 'clear-selection', label: 'Auswahl löschen', command: 'clearSelection' }
+						{ key: 'copy-selected-clipboard', label: tr('copy_selection', 'Copy selection'), onClick(context) { copySelectedReportRows(context.selectedRows || []); } },
+						{ key: 'clear-selection', label: tr('clear_selection', 'Clear selection'), command: 'clearSelection' }
 					]
 				},
 				rowActions: {
 					headerMenu: {
 						enabled: true,
 						buttonLabel: '...',
-						items: [{ type: 'columnVisibility', label: 'Spalten', showReset: true, resetLabel: 'Spalten zurücksetzen' }]
+						items: [{ type: 'columnVisibility', label: tr('columns', 'Columns'), showReset: true, resetLabel: tr('reset_columns', 'Reset columns') }]
 					},
-					items: [{ key: 'copy-clipboard', label: 'In Zwischenablage kopieren', onClick(context) { copyReportRow(context.row); } }]
+					items: [{ key: 'copy-clipboard', label: tr('copy_to_clipboard', 'Copy to clipboard'), onClick(context) { copyReportRow(context.row); } }]
 				},
-				reset: { zone: 'topLine1', order: 40, label: 'Reset', sections: ['query', 'filters', 'filterVisibility', 'columns', 'selection', 'detailView'] },
+				reset: { zone: 'topLine1', order: 40, label: tr('reset', 'Reset'), sections: ['query', 'filters', 'filterVisibility', 'columns', 'selection', 'detailView'] },
 				sessionStorage: { key: 'vizion-modulargrid-' + (REPORT_CONFIG?.report || 'report') + '-' + FILTER_STORAGE_SIGNATURE, sections: ['query', 'filters', 'filterVisibility', 'columns', 'selection', 'detailView'] },
 				info: { zone: 'statusZone', order: 10, displayMode: 'loaded' },
 				rowDetail: { rowIdKey: '__row_key', clearOnDataReload: true, detailRenderer(row) { return createDetailContent(row); } },
@@ -499,18 +506,18 @@
 		});
 
 		grid.on('data:appended', ({ appendedCount, totalLoaded }) => {
-			setLog('Loaded ' + appendedCount + ' more rows. ' + totalLoaded + ' rows are currently loaded.');
+			setLog(tr('loaded_more_rows', 'Loaded %s more rows. %s rows are currently loaded.').replace('%s', String(appendedCount)).replace('%s', String(totalLoaded)));
 		});
 
 		grid.on('detail:changed', (payload = {}) => {
 			const activeRowId = payload.rowId || null;
 
 			if (activeRowId) {
-				setLog('Opened detail for ' + activeRowId);
+				setLog(tr('opened_detail', 'Opened detail for %s').replace('%s', activeRowId));
 			}
 		});
 
 		await grid.init();
-		setLog('Initial batch loaded. Scroll to append the next ' + BATCH_SIZE + ' rows automatically.');
+		setLog(tr('initial_batch_loaded', 'Initial batch loaded. Scroll to append the next %s rows automatically.').replace('%s', String(BATCH_SIZE)));
 	})();
 </script>

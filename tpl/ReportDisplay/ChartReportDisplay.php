@@ -12,6 +12,7 @@
 			| JSON_THROW_ON_ERROR
 		);
 	};
+	$translations = is_array($this->_['translations'] ?? null) ? $this->_['translations'] : [];
 ?>
 <link rel="stylesheet" href="<?php echo htmlspecialchars($this->_['modulargridCssUrl']); ?>" />
 <link rel="stylesheet" href="<?php echo htmlspecialchars($this->_['chronoPickerCssUrl']); ?>" />
@@ -49,6 +50,12 @@
 	const CANVAS_SELECTOR = <?php echo $json('#' . $canvasId); ?>;
 	const LOG_SELECTOR = <?php echo $json('#' . $logId); ?>;
 	const REPORT_CONFIG = <?php echo $json($this->_['config']); ?>;
+	const TRANSLATIONS = <?php echo $json($translations); ?>;
+
+	function tr(key, fallback) {
+		const value = String(TRANSLATIONS[key] || '').trim();
+		return value !== '' ? value : fallback;
+	}
 	const FILTER_FIELDS = <?php echo $json($this->_['filterFields']); ?>;
 	const FILTER_INITIAL_VALUES = <?php echo $json($this->_['filterInitialValues']); ?>;
 	const CHART_CONFIG = <?php echo $json($this->_['chartConfig']); ?>;
@@ -125,9 +132,9 @@
 					visibilityStateKey: 'filterVisibility',
 					showClearButton: true,
 					addLabel: '',
-					addPlaceholder: 'Filter',
+					addPlaceholder: tr('filter', 'Filter'),
 					pickerWidth: 140,
-					clearLabel: 'Filter löschen',
+					clearLabel: tr('clear_filters', 'Clear filters'),
 					fields: filterTools.buildGridFilterFields(FILTER_FIELDS),
 					initialValues: FILTER_INITIAL_VALUES
 				},

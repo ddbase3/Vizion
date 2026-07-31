@@ -21,6 +21,8 @@ final class MatrixReportDisplay implements IDisplay {
 	/** @var array<string,mixed>|null */
 	private ?array $config = null;
 
+	private array $translations = [];
+
 	public function __construct(
 		private readonly IRequest $request,
 		private readonly IMvcView $view,
@@ -51,6 +53,7 @@ final class MatrixReportDisplay implements IDisplay {
 	}
 
 	public function getOutput(string $out = 'html', bool $final = false): string {
+		$this->loadTranslations();
 		return strtolower($out) === 'json'
 			? $this->getJsonOutput($final)
 			: $this->getHtmlOutput();
@@ -82,6 +85,7 @@ final class MatrixReportDisplay implements IDisplay {
 		$this->view->assign('filterControlsJsUrl', $this->assetResolver->resolve('plugin/Vizion/assets/js/vizion-report-filter-controls.js'));
 		$this->view->assign('cellRenderersJsUrl', $this->assetResolver->resolve('plugin/Vizion/assets/js/vizion-report-cell-renderers.js'));
 
+		$this->view->assign('translations', $this->translations);
 		return $this->view->loadTemplate();
 	}
 
@@ -195,7 +199,7 @@ final class MatrixReportDisplay implements IDisplay {
 		$display = $this->classmap->getInstanceByInterfaceName(IDisplay::class, $displayName);
 
 		if(!$display instanceof IDisplay) {
-			throw new \RuntimeException('Invalid matrix subreport display: ' . $displayName);
+			throw new \RuntimeException($this->t('error_invalid_matrix_display', 'Invalid matrix subreport display: %s', $displayName));
 		}
 
 		$display->setData([
@@ -206,7 +210,7 @@ final class MatrixReportDisplay implements IDisplay {
 
 		$response = json_decode($display->getOutput('json'), true);
 		if(!is_array($response)) {
-			throw new \RuntimeException('Matrix subreport returned invalid JSON.');
+			throw new \RuntimeException($this->t('error_matrix_invalid_json', 'Matrix subreport returned invalid JSON.'));
 		}
 
 		return $response;
@@ -353,7 +357,7 @@ final class MatrixReportDisplay implements IDisplay {
 			return $this->report;
 		}
 
-		throw new \InvalidArgumentException('Missing matrix report identifier.');
+		throw new \InvalidArgumentException($this->t('error_missing_matrix_report', 'Missing matrix report identifier.'));
 	}
 
 	/** @return array<int,array<string,mixed>> */
@@ -410,7 +414,27 @@ final class MatrixReportDisplay implements IDisplay {
 		return 'matrix-row-' . (string) $value;
 	}
 
+
+	private function loadTranslations(): void {
+		$this->view->setPath(DIR_PLUGIN . 'Vizion');
+		$this->view->loadBricks('Display');
+
+		$translations = $this->view->getBricks('vizion_report_display');
+		$this->translations = is_array($translations) ? $translations : [];
+	}
+
+	private function t(string $key, string $fallback, mixed ...$values): string {
+		$text = trim((string)($this->translations[$key] ?? ''));
+		if ($text === '') {
+			$text = $fallback;
+		}
+
+		return $values === [] ? $text : vsprintf($text, $values);
+	}
+
 	public function getHelp(): string {
-		return 'Displays a matrix master report with Ajax-loaded Vizion subreports in the row detail area.';
+		$this->loadTranslations();
+
+		return $this->t('help_matrix', 'Displays a matrix master report with Ajax-loaded Vizion subreports in the row detail area.');
 	}
 }

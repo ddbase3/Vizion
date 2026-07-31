@@ -8,6 +8,7 @@
 			JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR
 		);
 	};
+	$translations = is_array($this->_['translations'] ?? null) ? $this->_['translations'] : [];
 ?>
 <link rel="stylesheet" href="<?php echo htmlspecialchars((string) $this->_['modulargridCssUrl'], ENT_QUOTES); ?>" />
 <link rel="stylesheet" href="<?php echo htmlspecialchars((string) $this->_['chronoPickerCssUrl'], ENT_QUOTES); ?>" />
@@ -363,6 +364,12 @@
 	const FILTER_FIELDS = <?php echo $json($this->_['filterFields']); ?>;
 	const FILTER_INITIAL_VALUES = <?php echo $json($this->_['filterInitialValues']); ?>;
 	const REPORT_CONFIG = <?php echo $json($this->_['config']); ?>;
+	const TRANSLATIONS = <?php echo $json($translations); ?>;
+
+	function tr(key, fallback) {
+		const value = String(TRANSLATIONS[key] || '').trim();
+		return value !== '' ? value : fallback;
+	}
 	const BATCH_SIZE = Number(REPORT_CONFIG?.config?.pageSize || 50);
 
 	function createShortHash(value) {
@@ -397,7 +404,7 @@
 	function setLog(message) {
 		const logElement = document.querySelector(LOG_SELECTOR);
 		if (!logElement) return;
-		logElement.innerHTML = '<strong>Last action:</strong> ' + message;
+		logElement.innerHTML = '<strong>' + tr('last_action', 'Last action:') + '</strong> ' + message;
 	}
 
 	function getText(value, placeholder = '—') {
@@ -467,15 +474,15 @@
 
 	async function copyMatrixRow(row) {
 		if (!row) {
-			setLog('Kein Datensatz zum Kopieren vorhanden.');
+			setLog(tr('no_record_to_copy', 'No record is available to copy.'));
 			return;
 		}
 
 		try {
 			await copyPayloadToClipboard(createClipboardRecord(row));
-			setLog('Datensatz ' + getText(row.__row_key, '') + ' wurde in die Zwischenablage kopiert.');
+			setLog(tr('record_copied', 'Record %s was copied to the clipboard.').replace('%s', getText(row.__row_key, '')));
 		} catch (error) {
-			setLog('Datensatz konnte nicht kopiert werden: ' + getText(error && error.message, String(error)));
+			setLog(tr('record_copy_failed', 'The record could not be copied: %s').replace('%s', getText(error && error.message, String(error))));
 		}
 	}
 
@@ -483,15 +490,15 @@
 		const rows = Array.isArray(selectedRows) ? selectedRows : [];
 
 		if (rows.length === 0) {
-			setLog('Keine ausgewählten Datensätze zum Kopieren vorhanden.');
+			setLog(tr('no_selected_records_to_copy', 'No selected records are available to copy.'));
 			return;
 		}
 
 		try {
 			await copyPayloadToClipboard(rows.map(createClipboardRecord));
-			setLog(String(rows.length) + ' ausgewählte Datensätze wurden in die Zwischenablage kopiert.');
+			setLog(tr('selected_records_copied', '%s selected records were copied to the clipboard.').replace('%s', String(rows.length)));
 		} catch (error) {
-			setLog('Ausgewählte Datensätze konnten nicht kopiert werden: ' + getText(error && error.message, String(error)));
+			setLog(tr('selected_records_copy_failed', 'The selected records could not be copied: %s').replace('%s', getText(error && error.message, String(error))));
 		}
 	}
 
@@ -502,10 +509,10 @@
 			body: JSON.stringify(payload)
 		});
 
-		if (!response.ok) throw new Error('Request failed with status ' + String(response.status));
+		if (!response.ok) throw new Error(tr('request_failed_status', 'Request failed with status %s').replace('%s', String(response.status)));
 
 		const json = await response.json();
-		if (json && json.ok === false) throw new Error(getText(json.error, 'Request failed.'));
+		if (json && json.ok === false) throw new Error(getText(json.error, tr('request_failed', 'Request failed.')));
 		return json;
 	}
 
@@ -514,14 +521,14 @@
 		const parameter = getText(REPORT_CONFIG?.detail?.parameter, 'id');
 		const id = Number(row && (row[parameter] || row.id));
 
-		if (!id) throw new Error('Missing matrix detail parameter.');
+		if (!id) throw new Error(tr('error_missing_matrix_detail', 'Missing matrix detail parameter.'));
 
 		const payload = { mode: 'matrix-detail', id };
 		payload[parameter] = id;
 		const response = await postJson(payload);
 
 		if (!response || !response.found || !response.detail) {
-			throw new Error(getText(response && response.error, 'No matrix detail returned.'));
+			throw new Error(getText(response && response.error, tr('no_matrix_detail', 'No matrix detail returned.')));
 		}
 
 		return response.detail;
@@ -530,13 +537,13 @@
 	function createDetailLoadingPlaceholder(context) {
 		const row = context && context.row ? context.row : null;
 		const wrapper = createElement('div', 'vizion-matrix-report-detail-status');
-		wrapper.textContent = 'Loading matrix for ' + getText(row && (row.main_course_title || row.title || row.id), 'row') + ' ...';
+		wrapper.textContent = tr('loading_matrix_for', 'Loading matrix for %s ...').replace('%s', getText(row && (row.main_course_title || row.title || row.id), tr('row', 'row')));
 		return wrapper;
 	}
 
 	function createDetailErrorPlaceholder(context, error) {
 		const wrapper = createElement('div', 'vizion-matrix-report-detail-status vizion-matrix-report-detail-status-error');
-		wrapper.textContent = 'Matrix could not be loaded: ' + getText(error && error.message, String(error || 'unknown error'));
+		wrapper.textContent = tr('matrix_load_failed', 'Matrix could not be loaded: %s').replace('%s', getText(error && error.message, String(error || tr('unknown_error', 'unknown error'))));
 		return wrapper;
 	}
 
@@ -590,7 +597,7 @@
 			const emptyCell = document.createElement('td');
 			emptyCell.colSpan = Math.max(columns.length, 1);
 			emptyCell.className = 'vizion-matrix-report-table-empty';
-			emptyCell.textContent = 'No matrix data found.';
+			emptyCell.textContent = tr('no_matrix_data', 'No matrix data found.');
 			emptyRow.appendChild(emptyCell);
 			tbody.appendChild(emptyRow);
 		} else {
@@ -631,9 +638,9 @@
 		const headerText = document.createElement('div');
 		const actions = createElement('div', 'vizion-matrix-report-detail-actions');
 
-		headerText.appendChild(createElement('div', 'vizion-matrix-report-detail-title', getText(payload.headline, 'Matrix')));
+		headerText.appendChild(createElement('div', 'vizion-matrix-report-detail-title', getText(payload.headline, tr('matrix', 'Matrix'))));
 		headerText.appendChild(createElement('div', 'vizion-matrix-report-detail-summary', getText(payload.summary, '')));
-		actions.appendChild(createButton('Fullscreen', (button) => toggleDetailFullscreen(button)));
+		actions.appendChild(createButton(tr('fullscreen', 'Fullscreen'), (button) => toggleDetailFullscreen(button)));
 		header.appendChild(headerText);
 		header.appendChild(actions);
 		wrapper.appendChild(header);
@@ -695,7 +702,7 @@
 				InfiniteScrollPlugin
 			],
 			pluginOptions: {
-				search: { zone: 'topLine1', order: 10, label: 'Search', placeholder: 'Search matrix rows' },
+				search: { zone: 'topLine1', order: 10, label: tr('search', 'Search'), placeholder: tr('search_matrix_rows', 'Search matrix rows') },
 				compactFilters: {
 					zone: 'topLine2',
 					order: 10,
@@ -703,10 +710,10 @@
 					visibilityStateKey: 'filterVisibility',
 					showClearButton: true,
 					addLabel: '',
-					addPlaceholder: 'Filter wählen',
+					addPlaceholder: tr('choose_filter', 'Choose filter'),
 					pickerWidth: 145,
 					pickerMinWidth: 145,
-					clearLabel: 'Filter löschen',
+					clearLabel: tr('clear_filters', 'Clear filters'),
 					fields: reportFilterTools.buildGridFilterFields(FILTER_FIELDS),
 					initialValues: FILTER_INITIAL_VALUES
 				},
@@ -716,18 +723,18 @@
 					zone: 'topLine1',
 					order: 30,
 					rowIdKey: '__row_key',
-					selectedLabel: 'Ausgewählt',
-					emptyText: 'Keine Auswahl',
+					selectedLabel: tr('selected', 'Selected'),
+					emptyText: tr('no_selection', 'No selection'),
 					items: [
-						{ key: 'copy-selected-clipboard', label: 'Auswahl kopieren', onClick(context) { copySelectedMatrixRows(context.selectedRows || []); } },
-						{ key: 'clear-selection', label: 'Auswahl löschen', command: 'clearSelection' }
+						{ key: 'copy-selected-clipboard', label: tr('copy_selection', 'Copy selection'), onClick(context) { copySelectedMatrixRows(context.selectedRows || []); } },
+						{ key: 'clear-selection', label: tr('clear_selection', 'Clear selection'), command: 'clearSelection' }
 					]
 				},
 				rowActions: {
-					headerMenu: { enabled: true, buttonLabel: '...', items: [{ type: 'columnVisibility', label: 'Spalten', showReset: true, resetLabel: 'Spalten zurücksetzen' }] },
-					items: [{ key: 'copy-clipboard', label: 'In Zwischenablage kopieren', onClick(context) { copyMatrixRow(context.row); } }]
+					headerMenu: { enabled: true, buttonLabel: '...', items: [{ type: 'columnVisibility', label: tr('columns', 'Columns'), showReset: true, resetLabel: tr('reset_columns', 'Reset columns') }] },
+					items: [{ key: 'copy-clipboard', label: tr('copy_to_clipboard', 'Copy to clipboard'), onClick(context) { copyMatrixRow(context.row); } }]
 				},
-				reset: { zone: 'topLine1', order: 40, label: 'Reset', sections: ['query', 'filters', 'filterVisibility', 'columns', 'selection', 'detailView'] },
+				reset: { zone: 'topLine1', order: 40, label: tr('reset', 'Reset'), sections: ['query', 'filters', 'filterVisibility', 'columns', 'selection', 'detailView'] },
 				sessionStorage: { key: 'vizion-matrix-report-' + (REPORT_CONFIG?.report || 'report') + '-' + FILTER_STORAGE_SIGNATURE, sections: ['query', 'filters', 'filterVisibility', 'columns', 'selection', 'detailView'] },
 				info: { zone: 'statusZone', order: 10, displayMode: 'loaded' },
 				rowDetail: {
@@ -745,10 +752,10 @@
 			columns: reportCellTools.buildColumns(REPORT_COLUMNS)
 		});
 
-		grid.on('data:appended', ({ appendedCount, totalLoaded }) => setLog('Loaded ' + appendedCount + ' more rows. ' + totalLoaded + ' rows are currently loaded.'));
-		grid.on('detail:changed', (payload = {}) => { if (payload.rowId) setLog('Opened matrix detail for ' + payload.rowId); });
+		grid.on('data:appended', ({ appendedCount, totalLoaded }) => setLog(tr('loaded_more_rows', 'Loaded %s more rows. %s rows are currently loaded.').replace('%s', String(appendedCount)).replace('%s', String(totalLoaded))));
+		grid.on('detail:changed', (payload = {}) => { if (payload.rowId) setLog(tr('opened_matrix_detail', 'Opened matrix detail for %s').replace('%s', payload.rowId)); });
 
 		await grid.init();
-		setLog('Initial batch loaded. Scroll to append the next ' + BATCH_SIZE + ' rows automatically.');
+		setLog(tr('initial_batch_loaded', 'Initial batch loaded. Scroll to append the next %s rows automatically.').replace('%s', String(BATCH_SIZE)));
 	})();
 </script>

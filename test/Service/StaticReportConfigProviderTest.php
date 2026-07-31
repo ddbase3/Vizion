@@ -2,13 +2,14 @@
 
 namespace Vizion\Test\Service;
 
+use Base3\Translation\Api\ITranslation;
 use PHPUnit\Framework\TestCase;
 use Vizion\Service\StaticReportConfigProvider;
 
 final class StaticReportConfigProviderTest extends TestCase {
 
 	public function testGetConfigReturnsExpectedConfigForExampleReport(): void {
-		$provider = new StaticReportConfigProvider();
+		$provider = new StaticReportConfigProvider($this->createTranslation());
 
 		$config = $provider->getConfig('example');
 
@@ -38,11 +39,20 @@ final class StaticReportConfigProviderTest extends TestCase {
 	}
 
 	public function testGetConfigThrowsWhenReportIsNotExample(): void {
-		$provider = new StaticReportConfigProvider();
+		$provider = new StaticReportConfigProvider($this->createTranslation());
 
 		$this->expectException(\Exception::class);
 		$this->expectExceptionMessage('Report not found: nope');
 
 		$provider->getConfig('nope');
 	}
+	private function createTranslation(): ITranslation {
+		$translation = $this->createStub(ITranslation::class);
+		$translation->method('translate')->willReturnCallback(
+			static fn(string $set, string $section, string $key, string $fallback = ''): string => $fallback
+		);
+
+		return $translation;
+	}
+
 }

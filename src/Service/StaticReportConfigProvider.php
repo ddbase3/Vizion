@@ -18,13 +18,16 @@
 
 namespace Vizion\Service;
 
+use Base3\Translation\Api\ITranslation;
 use Vizion\Api\IReportConfigProvider;
 
 class StaticReportConfigProvider implements IReportConfigProvider {
 
+	public function __construct(private readonly ITranslation $translation) {}
+
 	public function getConfig(string $report): array {
 		if ($report !== "example") {
-			throw new \Exception("Report not found: $report");
+			throw new \Exception($this->t('error_report_not_found', 'Report not found: %s', $report));
 		}
 
 		return [
@@ -44,9 +47,9 @@ class StaticReportConfigProvider implements IReportConfigProvider {
 						"field" => "name"
 					],
 					"config" => [
-						"label" => "Repository",
+						"label" => $this->t('column_repository', 'Repository'),
 						"sortable" => true,
-						"filter" => [ "type" => "text", "placeholder" => "Filter Repository" ]
+						"filter" => [ "type" => "text", "placeholder" => $this->t('filter_repository', 'Filter repository') ]
 					]
 				],
 				[
@@ -57,9 +60,9 @@ class StaticReportConfigProvider implements IReportConfigProvider {
 						"field" => "language"
 					],
 					"config" => [
-						"label" => "Language",
+						"label" => $this->t('column_language', 'Language'),
 						"sortable" => true,
-						"filter" => [ "type" => "text", "placeholder" => "Filter Language" ]
+						"filter" => [ "type" => "text", "placeholder" => $this->t('filter_language', 'Filter language') ]
 					]
 				],
 				[
@@ -70,9 +73,9 @@ class StaticReportConfigProvider implements IReportConfigProvider {
 						"field" => "name"
 					],
 					"config" => [
-						"label" => "License",
+						"label" => $this->t('column_license', 'License'),
 						"sortable" => true,
-						"filter" => [ "type" => "text", "placeholder" => "Filter License" ]
+						"filter" => [ "type" => "text", "placeholder" => $this->t('filter_license', 'Filter license') ]
 					]
 				],
 				[
@@ -83,9 +86,9 @@ class StaticReportConfigProvider implements IReportConfigProvider {
 						"field" => "login"
 					],
 					"config" => [
-						"label" => "Owner",
+						"label" => $this->t('column_owner', 'Owner'),
 						"sortable" => true,
-						"filter" => [ "type" => "text", "placeholder" => "Filter Owner" ]
+						"filter" => [ "type" => "text", "placeholder" => $this->t('filter_owner', 'Filter owner') ]
 					]
 				],
 				[
@@ -96,9 +99,9 @@ class StaticReportConfigProvider implements IReportConfigProvider {
 						"field" => "name"
 					],
 					"config" => [
-						"label" => "Branch",
+						"label" => $this->t('column_branch', 'Branch'),
 						"sortable" => true,
-						"filter" => [ "type" => "text", "placeholder" => "Filter Branch" ]
+						"filter" => [ "type" => "text", "placeholder" => $this->t('filter_branch', 'Filter branch') ]
 					]
 				],
 				[
@@ -109,7 +112,7 @@ class StaticReportConfigProvider implements IReportConfigProvider {
 						"field" => "size"
 					],
 					"config" => [
-						"label" => "Size",
+						"label" => $this->t('column_size', 'Size'),
 						"sortable" => true,
 						"filter" => [ "type" => "numberrange" ]
 					]
@@ -125,6 +128,12 @@ class StaticReportConfigProvider implements IReportConfigProvider {
 				]
 			]
 		];
+	}
+
+	private function t(string $key, string $fallback, mixed ...$values): string {
+		$text = $this->translation->translate('Display', 'vizion_report_display', $key, $fallback);
+
+		return $values === [] ? $text : vsprintf($text, $values);
 	}
 }
 
