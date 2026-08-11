@@ -13,6 +13,7 @@ Vizion provides a growing collection of modular UI components for data visualiza
 * 📊 JSON-based report configuration with field-specific control options
 * ⚙️ Declarative display type switching (e.g., `DataTableReportDisplay`, `BarChartReportDisplay`, ...)
 * 🧩 Config loading via `IReportConfigProvider` (e.g., from file, DB or inline)
+* 📁 The default `FileReportConfigProvider` discovers globally unique report ids under `<Plugin>/local/Vizion/*.json`
 * 🔄 Dynamic Ajax support through `getOutput('json')`
 * 📐 Clean MVC rendering via `IMvcView` integration
 * 🔎 Sorting, paging, filtering, column visibility and layout control for tables

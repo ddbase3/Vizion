@@ -38,7 +38,7 @@ final class FileReportConfigProviderTest extends TestCase {
 		parent::tearDown();
 	}
 
-	public function testGetConfigReturnsDecodedJsonFromFirstMatchingPluginFile(): void {
+	public function testGetConfigThrowsWhenReportIdentifierIsDuplicatedAcrossPlugins(): void {
 		$report = 'sales';
 
 		$pluginA = $this->makePluginName('TestPluginA');
@@ -52,9 +52,10 @@ final class FileReportConfigProviderTest extends TestCase {
 
 		$provider = new FileReportConfigProvider($classmap);
 
-		$config = $provider->getConfig($report);
+		$this->expectException(\RuntimeException::class);
+		$this->expectExceptionMessage('Report identifier is not unique: sales');
 
-		$this->assertSame(['from' => 'A'], $config);
+		$provider->getConfig($report);
 	}
 
 	public function testGetConfigFindsReportInLaterPluginIfEarlierDoesNotHaveIt(): void {
@@ -73,6 +74,18 @@ final class FileReportConfigProviderTest extends TestCase {
 		$config = $provider->getConfig($report);
 
 		$this->assertSame(['ok' => true], $config);
+	}
+
+	public function testGetConfigRejectsInvalidReportIdentifier(): void {
+		$classmap = $this->createStub(IClassMap::class);
+		$classmap->method('getPlugins')->willReturn([]);
+
+		$provider = new FileReportConfigProvider($classmap);
+
+		$this->expectException(\InvalidArgumentException::class);
+		$this->expectExceptionMessage('Invalid report identifier');
+
+		$provider->getConfig('../sales');
 	}
 
 	public function testGetConfigThrowsWhenReportNotFound(): void {
@@ -111,7 +124,7 @@ final class FileReportConfigProviderTest extends TestCase {
 	private function writeReportJson(string $pluginName, string $report, array $data): void {
 		$pluginDir = $this->ensurePluginDir($pluginName);
 
-		$dir = $pluginDir . 'local/Report/';
+		$dir = $pluginDir . 'local/Vizion/';
 		if (!is_dir($dir)) {
 			mkdir($dir, 0777, true);
 		}

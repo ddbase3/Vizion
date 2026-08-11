@@ -25,19 +25,52 @@ class FileReportConfigProvider implements IReportConfigProvider {
 
 	public function __construct(private readonly IClassMap $classmap) {}
 
-	// Implementation of IReportConfigProvider
-
 	public function getConfig(string $report): array {
-
-		$plugins = $this->classmap->getPlugins();
-		foreach ($plugins as $plugin) {
-			$file = DIR_PLUGIN . $plugin . '/local/Report/' . $report . '.json';
-			if (!file_exists($file)) continue;
-			$json = file_get_contents($file);
-			return json_decode($json, true);
+		$report = trim($report);
+		if($report === '') {
+			throw new \InvalidArgumentException('Missing report identifier');
 		}
 
-		throw new \Exception("Report not found: $report");
+		if(preg_match('/^[a-zA-Z0-9_-]+$/', $report) !== 1) {
+			throw new \InvalidArgumentException('Invalid report identifier: ' . $report);
+		}
+
+		$files = [];
+
+		foreach($this->classmap->getPlugins() as $plugin) {
+			if(!is_scalar($plugin)) {
+				continue;
+			}
+
+			$pluginName = trim((string) $plugin);
+			if($pluginName === '') {
+				continue;
+			}
+
+			$file = DIR_PLUGIN . $pluginName . '/local/Vizion/' . $report . '.json';
+			if(is_file($file)) {
+				$files[] = $file;
+			}
+		}
+
+		if(count($files) === 0) {
+			throw new \RuntimeException('Report not found: ' . $report);
+		}
+
+		if(count($files) > 1) {
+			throw new \RuntimeException('Report identifier is not unique: ' . $report);
+		}
+
+		$raw = file_get_contents($files[0]);
+		if($raw === false) {
+			throw new \RuntimeException('Failed to read report file: ' . $files[0]);
+		}
+
+		$config = json_decode($raw, true);
+		if(!is_array($config) || json_last_error() !== JSON_ERROR_NONE) {
+			throw new \RuntimeException('Invalid JSON in report file ' . $files[0] . ': ' . json_last_error_msg());
+		}
+
+		return $config;
 	}
 }
-

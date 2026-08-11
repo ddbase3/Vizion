@@ -313,7 +313,7 @@ class ModularGridReportDisplay implements IDisplay {
 		if($search !== '') {
 			$searchParams = [];
 
-			foreach($fieldDefs as $element) {
+			foreach($this->getSearchFieldDefs() as $element) {
 				$searchParams[] = [
 					'type' => 'op',
 					'operator' => 'LIKE',
@@ -381,8 +381,8 @@ class ModularGridReportDisplay implements IDisplay {
 			'alias' => '__total__'
 		];
 
-		if(isset($this->config['group'])) {
-			$countQuery['group'] = $this->config['group'];
+		if(isset($this->config['group_by'])) {
+			$countQuery['group_by'] = $this->config['group_by'];
 		}
 
 		if(isset($this->config['having'])) {
@@ -432,8 +432,8 @@ class ModularGridReportDisplay implements IDisplay {
 			$dataQuery['order_by'] = $this->config['order_by'];
 		}
 
-		if(isset($this->config['group'])) {
-			$dataQuery['group'] = $this->config['group'];
+		if(isset($this->config['group_by'])) {
+			$dataQuery['group_by'] = $this->config['group_by'];
 		}
 
 		if(isset($this->config['having'])) {
@@ -456,6 +456,28 @@ class ModularGridReportDisplay implements IDisplay {
 		$fields = $this->config['fields'] ?? [];
 
 		return is_array($fields) ? $fields : [];
+	}
+
+	/**
+	 * @return array<string, mixed>
+	 */
+	private function getSearchFieldDefs(): array {
+		$fieldDefs = [];
+
+		foreach($this->getFields() as $field) {
+			if(!isset($field['alias'], $field['element'])) {
+				continue;
+			}
+
+			$config = isset($field['config']) && is_array($field['config']) ? $field['config'] : [];
+			if(array_key_exists('search', $config) && !$config['search']) {
+				continue;
+			}
+
+			$fieldDefs[(string) $field['alias']] = $field['element'];
+		}
+
+		return $fieldDefs;
 	}
 
 	/**

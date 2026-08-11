@@ -1,0 +1,74 @@
+{
+  "display": "datatablereportdisplay",
+  "config": {
+    "paging": true,
+    "columnSelector": true,
+    "sortColumn": "repository_name",
+    "sortDirection": "asc"
+  },
+  "fields": [
+    {
+      "alias": "repository_name",
+      "element": { "type": "fld", "table": "git_repository", "field": "name" },
+      "config": {
+        "label": "Repository",
+        "sortable": true,
+        "filter": { "type": "text", "placeholder": "Filter repository" }
+      }
+    },
+    {
+      "alias": "language",
+      "element": { "type": "fld", "table": "git_repository", "field": "language" },
+      "config": {
+        "label": "Language",
+        "sortable": true,
+        "filter": { "type": "text", "placeholder": "Filter language" }
+      }
+    },
+    {
+      "alias": "license",
+      "element": { "type": "fld", "table": "git_license", "field": "name" },
+      "config": {
+        "label": "License",
+        "sortable": true,
+        "filter": { "type": "text", "placeholder": "Filter license" }
+      }
+    },
+    {
+      "alias": "owner",
+      "element": { "type": "fld", "table": "git_owner", "field": "login" },
+      "config": {
+        "label": "Owner",
+        "sortable": true,
+        "filter": { "type": "text", "placeholder": "Filter owner" }
+      }
+    },
+    {
+      "alias": "default_branch",
+      "element": { "type": "fld", "table": "git_branch", "field": "name" },
+      "config": {
+        "label": "Branch",
+        "sortable": true,
+        "filter": { "type": "text", "placeholder": "Filter branch" }
+      }
+    },
+    {
+      "alias": "size",
+      "element": { "type": "fld", "table": "git_repository", "field": "size" },
+      "config": {
+        "label": "Size",
+        "sortable": true,
+        "filter": { "type": "numberrange" }
+      }
+    }
+  ],
+  "table": "git_repository",
+  "where": {
+    "type": "op",
+    "operator": "=",
+    "params": [
+      { "type": "fld", "table": "git_branch", "field": "is_default" },
+      true
+    ]
+  }
+}
