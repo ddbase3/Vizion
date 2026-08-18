@@ -55,7 +55,7 @@ function isEmptyFilterValue(key, value, fields) {
 	return value === '' || value === null || value === undefined;
 }
 
-function renderRangeFilter(api) {
+function renderRangeFilter(api, dependencies = {}) {
 	const wrapper = document.createElement('div');
 	const value = api.value && typeof api.value === 'object' ? api.value : {};
 	const minInput = document.createElement('input');
@@ -66,8 +66,8 @@ function renderRangeFilter(api) {
 	maxInput.type = 'number';
 	minInput.className = 'mg-input';
 	maxInput.className = 'mg-input';
-	minInput.placeholder = 'Min';
-	maxInput.placeholder = 'Max';
+	minInput.placeholder = String(dependencies.strings?.rangeMin || 'Min');
+	maxInput.placeholder = String(dependencies.strings?.rangeMax || 'Max');
 	minInput.value = value.min ?? '';
 	maxInput.value = value.max ?? '';
 
@@ -314,6 +314,7 @@ function createChronoInput(api, part, value, commitValue, dependencies) {
 
 	const picker = new ChronoPicker(input, {
 		mode,
+		strings: dependencies.chronoStrings || {},
 		displayMode: 'popover',
 		value: input.value || '',
 		format: displayFormat,
@@ -409,7 +410,7 @@ function renderChronoDateRangeFilter(api, dependencies) {
 
 export function createReportFilterTools(dependencies = {}) {
 	const controls = {
-		'vizion.range': renderRangeFilter,
+		'vizion.range': (api) => renderRangeFilter(api, dependencies),
 		'vizion.dateRange': renderDateRangeFilter,
 		'vizion.chronopickerDate': (api) => renderChronoDateFilter(api, dependencies),
 		'vizion.chronopickerDateRange': (api) => renderChronoDateRangeFilter(api, dependencies)

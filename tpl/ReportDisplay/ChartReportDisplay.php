@@ -13,6 +13,10 @@
 		);
 	};
 	$translations = is_array($this->_['translations'] ?? null) ? $this->_['translations'] : [];
+	$modularGridStrings = $this->getBricks('clientstack_modulargrid');
+	$modularGridStrings = is_array($modularGridStrings) ? $modularGridStrings : [];
+	$chronoPickerStrings = $this->getBricks('clientstack_chronopicker');
+	$chronoPickerStrings = is_array($chronoPickerStrings) ? $chronoPickerStrings : [];
 ?>
 <link rel="stylesheet" href="<?php echo htmlspecialchars($this->_['modulargridCssUrl']); ?>" />
 <link rel="stylesheet" href="<?php echo htmlspecialchars($this->_['chronoPickerCssUrl']); ?>" />
@@ -51,6 +55,8 @@
 	const LOG_SELECTOR = <?php echo $json('#' . $logId); ?>;
 	const REPORT_CONFIG = <?php echo $json($this->_['config']); ?>;
 	const TRANSLATIONS = <?php echo $json($translations); ?>;
+	const MODULAR_GRID_STRINGS = <?php echo $json($modularGridStrings); ?>;
+	const CHRONO_PICKER_STRINGS = <?php echo $json($chronoPickerStrings); ?>;
 
 	function tr(key, fallback) {
 		const value = String(TRANSLATIONS[key] || '').trim();
@@ -65,7 +71,12 @@
 		ChronoPicker,
 		DatePickerPlugin,
 		DateTimePlugin,
-		KeyboardPlugin
+		KeyboardPlugin,
+		chronoStrings: CHRONO_PICKER_STRINGS,
+		strings: {
+			rangeMin: tr('range_min', 'Min'),
+			rangeMax: tr('range_max', 'Max')
+		}
 	});
 	const cellTools = createReportCellRendererTools();
 
@@ -115,6 +126,7 @@
 		await import(new URL(CHART_JS_URL, document.baseURI).href);
 
 		const filterGrid = new ModularGrid(FILTER_SELECTOR, {
+			strings: MODULAR_GRID_STRINGS,
 			layout: filterLayout,
 			data: [],
 			features: {
@@ -155,6 +167,15 @@
 			chartConfig: CHART_CONFIG,
 			formatValue: cellTools.formatValue,
 			logElement,
+			strings: {
+				dataset: tr('chart_dataset', 'Dataset {index}'),
+				requestFailedStatus: tr('chart_request_failed_status', 'Chart request failed with status {status}.'),
+				invalidResponse: tr('chart_invalid_response', 'Chart request returned an invalid response.'),
+				chartJsUnavailable: tr('chart_js_unavailable', 'Chart.js is not available.'),
+				chartCanvasRequired: tr('chart_canvas_required', 'A chart canvas element is required.'),
+				loading: tr('chart_loading', 'Loading chart...'),
+				loadedGroups: tr('chart_loaded_groups', 'Chart loaded: {count} groups.')
+			},
 			getRequestPayload() {
 				const state = filterGrid.getState();
 				return {

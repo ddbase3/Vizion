@@ -10,11 +10,31 @@ function getText(value, fallback) {
 	return String(value);
 }
 
-function normalizeDataset(dataset, index) {
+const DEFAULT_STRINGS = {
+	dataset: 'Dataset {index}',
+	requestFailedStatus: 'Chart request failed with status {status}.',
+	invalidResponse: 'Chart request returned an invalid response.',
+	chartJsUnavailable: 'Chart.js is not available.',
+	chartCanvasRequired: 'A chart canvas element is required.',
+	loading: 'Loading chart...',
+	loadedGroups: 'Chart loaded: {count} groups.'
+};
+
+function formatString(value, replacements = {}) {
+	return Object.entries(replacements).reduce((text, [key, replacement]) => {
+		return text.replaceAll(`{${key}}`, String(replacement));
+	}, String(value ?? ''));
+}
+
+function getString(strings, key, replacements = {}) {
+	return formatString(strings?.[key] ?? DEFAULT_STRINGS[key] ?? key, replacements);
+}
+
+function normalizeDataset(dataset, index, strings) {
 	const nextDataset = Object.assign({}, dataset);
 	const measure = nextDataset.vizionMeasure || {};
 
-	nextDataset.label = nextDataset.label || measure.label || measure.alias || 'Dataset ' + String(index + 1);
+	nextDataset.label = nextDataset.label || measure.label || measure.alias || getString(strings, 'dataset', { index: index + 1 });
 	nextDataset.data = asArray(nextDataset.data).map((value) => Number(value) || 0);
 
 	delete nextDataset.vizionMeasure;
@@ -65,12 +85,12 @@ function buildChartOptions(baseOptions, payload, formatValue) {
 	return options;
 }
 
-function buildChartJsConfig(payload, fallbackConfig, formatValue) {
+function buildChartJsConfig(payload, fallbackConfig, formatValue, strings) {
 	const chart = payload && payload.chart ? payload.chart : fallbackConfig || {};
 	const rawLabels = asArray(payload && payload.labels ? payload.labels : []);
 	const dimension = chart.dimension || {};
 	const labels = rawLabels.map((label) => formatValue(label, { formatter: dimension.formatter || { type: 'text' } }));
-	const datasets = asArray(payload && payload.datasets ? payload.datasets : []).map((dataset, index) => normalizeDataset(dataset, index));
+	const datasets = asArray(payload && payload.datasets ? payload.datasets : []).map((dataset, index) => normalizeDataset(dataset, index, strings));
 
 	return {
 		type: chart.type || fallbackConfig.type || 'bar',
@@ -90,7 +110,7 @@ function setLog(logElement, message) {
 	logElement.textContent = message;
 }
 
-async function fetchChartPayload(endpointUrl, requestPayload) {
+async function fetchChartPayload(endpointUrl, requestPayload, strings) {
 	const response = await fetch(endpointUrl, {
 		method: 'POST',
 		headers: {
@@ -100,13 +120,13 @@ async function fetchChartPayload(endpointUrl, requestPayload) {
 	});
 
 	if (!response.ok) {
-		throw new Error('Chart request failed with status ' + String(response.status) + '.');
+		throw new Error(getString(strings, 'requestFailedStatus', { status: response.status }));
 	}
 
 	const payload = await response.json();
 
 	if (!payload || payload.ok === false) {
-		throw new Error(payload && payload.error ? String(payload.error) : 'Chart request returned an invalid response.');
+		throw new Error(payload && payload.error ? String(payload.error) : getString(strings, 'invalidResponse'));
 	}
 
 	return payload;
@@ -120,29 +140,30 @@ export function createReportChartController(options = {}) {
 	const formatValue = typeof options.formatValue === 'function' ? options.formatValue : ((value) => getText(value, '—'));
 	const getRequestPayload = typeof options.getRequestPayload === 'function' ? options.getRequestPayload : (() => ({}));
 	const logElement = options.logElement || null;
+	const strings = Object.assign({}, DEFAULT_STRINGS, options.strings || {});
 	let chart = null;
 
 	if (typeof Chart !== 'function') {
-		throw new Error('Chart.js is not available.');
+		throw new Error(getString(strings, 'chartJsUnavailable'));
 	}
 
 	if (!(canvas instanceof HTMLCanvasElement)) {
-		throw new Error('A chart canvas element is required.');
+		throw new Error(getString(strings, 'chartCanvasRequired'));
 	}
 
 	async function reload() {
-		setLog(logElement, 'Diagramm wird geladen...');
+		setLog(logElement, getString(strings, 'loading'));
 
 		try {
-			const payload = await fetchChartPayload(endpointUrl, getRequestPayload());
-			const nextConfig = buildChartJsConfig(payload, chartConfig, formatValue);
+			const payload = await fetchChartPayload(endpointUrl, getRequestPayload(), strings);
+			const nextConfig = buildChartJsConfig(payload, chartConfig, formatValue, strings);
 
 			if (chart && typeof chart.destroy === 'function') {
 				chart.destroy();
 			}
 
 			chart = new Chart(canvas.getContext('2d'), nextConfig);
-			setLog(logElement, 'Diagramm geladen: ' + String(payload.total || 0) + ' Gruppen.');
+			setLog(logElement, getString(strings, 'loadedGroups', { count: payload.total || 0 }));
 			return payload;
 		} catch (error) {
 			setLog(logElement, error instanceof Error ? error.message : String(error));

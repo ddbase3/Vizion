@@ -391,7 +391,7 @@ final class ReportChartService implements IReportChartService {
 			$rawMeasures = [[
 				'aggregation' => 'count',
 				'alias' => 'row_count',
-				'label' => 'Anzahl'
+				'label' => 'Count'
 			]];
 		}
 

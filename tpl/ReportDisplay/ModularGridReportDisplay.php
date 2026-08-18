@@ -9,6 +9,10 @@
 		);
 	};
 	$translations = is_array($this->_['translations'] ?? null) ? $this->_['translations'] : [];
+	$modularGridStrings = $this->getBricks('clientstack_modulargrid');
+	$modularGridStrings = is_array($modularGridStrings) ? $modularGridStrings : [];
+	$chronoPickerStrings = $this->getBricks('clientstack_chronopicker');
+	$chronoPickerStrings = is_array($chronoPickerStrings) ? $chronoPickerStrings : [];
 ?>
 <link rel="stylesheet" href="<?php echo htmlspecialchars((string) $this->_['modulargridCssUrl'], ENT_QUOTES); ?>" />
 <link rel="stylesheet" href="<?php echo htmlspecialchars((string) $this->_['chronoPickerCssUrl'], ENT_QUOTES); ?>" />
@@ -214,14 +218,6 @@
 	const chronoPickerModule = await import(new URL(<?php echo $json((string) $this->_['chronoPickerJsUrl']); ?>, document.baseURI).href);
 	const filterControlsModule = await import(new URL(<?php echo $json((string) $this->_['filterControlsJsUrl']); ?>, document.baseURI).href);
 	const cellRenderersModule = await import(new URL(<?php echo $json((string) $this->_['cellRenderersJsUrl']); ?>, document.baseURI).href);
-	const reportFilterTools = filterControlsModule.createReportFilterTools({
-		ChronoPicker: chronoPickerModule.ChronoPicker,
-		DatePickerPlugin: chronoPickerModule.DatePickerPlugin,
-		DateTimePlugin: chronoPickerModule.DateTimePlugin,
-		KeyboardPlugin: chronoPickerModule.KeyboardPlugin
-	});
-	const reportCellTools = cellRenderersModule.createReportCellRendererTools();
-
 	const ENDPOINT_URL = <?php echo $json((string) $this->_['ajaxUrl']); ?>;
 	const GRID_SELECTOR = <?php echo $json('#' . $gridId); ?>;
 	const LOG_SELECTOR = <?php echo $json('#' . $logId); ?>;
@@ -230,11 +226,25 @@
 	const FILTER_INITIAL_VALUES = <?php echo $json($this->_['filterInitialValues']); ?>;
 	const REPORT_CONFIG = <?php echo $json($this->_['config']); ?>;
 	const TRANSLATIONS = <?php echo $json($translations); ?>;
+	const MODULAR_GRID_STRINGS = <?php echo $json($modularGridStrings); ?>;
+	const CHRONO_PICKER_STRINGS = <?php echo $json($chronoPickerStrings); ?>;
 
 	function tr(key, fallback) {
 		const value = String(TRANSLATIONS[key] || '').trim();
 		return value !== '' ? value : fallback;
 	}
+	const reportFilterTools = filterControlsModule.createReportFilterTools({
+		ChronoPicker: chronoPickerModule.ChronoPicker,
+		DatePickerPlugin: chronoPickerModule.DatePickerPlugin,
+		DateTimePlugin: chronoPickerModule.DateTimePlugin,
+		KeyboardPlugin: chronoPickerModule.KeyboardPlugin,
+		chronoStrings: CHRONO_PICKER_STRINGS,
+		strings: {
+			rangeMin: tr('range_min', 'Min'),
+			rangeMax: tr('range_max', 'Max')
+		}
+	});
+	const reportCellTools = cellRenderersModule.createReportCellRendererTools();
 	const BATCH_SIZE = Number(REPORT_CONFIG?.config?.pageSize || 50);
 
 	function createShortHash(value) {
@@ -436,6 +446,7 @@
 		});
 
 		grid = new ModularGrid(GRID_SELECTOR, {
+			strings: MODULAR_GRID_STRINGS,
 			layout,
 			adapter,
 			dataMode: 'server',
