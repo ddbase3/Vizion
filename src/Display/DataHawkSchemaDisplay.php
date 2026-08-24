@@ -21,8 +21,8 @@ namespace Vizion\Display;
 use Base3\Api\IAssetResolver;
 use Base3\Api\IMvcView;
 use Base3\Api\IDisplay;
-use ModuledPage\Page\AbstractModuleContent;
 use ResourceFoundation\Api\IQuerySchemaProvider;
+use ResourceFoundation\Api\IScopedQuerySchemaProvider;
 
 class DataHawkSchemaDisplay implements IDisplay {
 
@@ -53,11 +53,54 @@ class DataHawkSchemaDisplay implements IDisplay {
 	public function getOutput(string $out = 'html', bool $final = false): string {
 		$this->loadTranslations();
 
+		$scopeData = [];
+		$scopes = [];
+		$defaultScope = '';
+
+		if ($this->queryschemaprovider instanceof IScopedQuerySchemaProvider) {
+			$scopes = $this->queryschemaprovider->getScopes();
+			$defaultScope = $this->queryschemaprovider->getDefaultScope();
+
+			foreach ($scopes as $scope) {
+				$scopeData[$scope] = $this->buildSchemaData(
+					$this->queryschemaprovider->getSchemaForScope($scope)
+				);
+			}
+		}
+		else {
+			$defaultScope = 'default';
+			$scopes = [$defaultScope];
+			$scopeData[$defaultScope] = $this->buildSchemaData(
+				$this->queryschemaprovider->getSchema()
+			);
+		}
+
+		$selectedScope = $defaultScope;
+		if (is_array($this->displayData) && isset($this->displayData['scope'])) {
+			$candidate = trim((string)$this->displayData['scope']);
+			if ($candidate !== '' && array_key_exists($candidate, $scopeData)) {
+				$selectedScope = $candidate;
+			}
+		}
+
+		if ($selectedScope === '' && $scopes !== []) {
+			$selectedScope = (string)reset($scopes);
+		}
+
+		$this->view->setPath(DIR_PLUGIN . 'Vizion');
+		$this->view->setTemplate('Display/DataHawkSchemaDisplay.php');
+		$this->view->assign('scopeData', $scopeData);
+		$this->view->assign('scopes', $scopes);
+		$this->view->assign('selectedScope', $selectedScope);
+		$this->view->assign('resolve', fn($src) => $this->assetResolver->resolve($src));
+		$this->view->assign('translations', $this->translations);
+		return $this->view->loadTemplate();
+	}
+
+	private function buildSchemaData(array $schema): array {
 		$data = ['data' => [], 'foreignKeys' => []];
-		$schema = $this->queryschemaprovider->getSchema();
 
 		foreach ($schema as $table) {
-
 			if ($this->displayData != null && isset($this->displayData['domain']) && $table->domain != $this->displayData['domain']) continue;
 			if ($this->displayData != null && isset($this->displayData['tags']) && empty(array_intersect($table->tags, $this->displayData['tags']))) continue;
 
@@ -98,14 +141,8 @@ class DataHawkSchemaDisplay implements IDisplay {
 			}
 		}
 
-		$this->view->setPath(DIR_PLUGIN . 'Vizion');
-		$this->view->setTemplate('Display/DataHawkSchemaDisplay.php');
-		$this->view->assign('data', $data);
-		$this->view->assign('resolve', fn($src) => $this->assetResolver->resolve($src));
-		$this->view->assign('translations', $this->translations);
-		return $this->view->loadTemplate();
+		return $data;
 	}
-
 
 	private function loadTranslations(): void {
 		$this->view->setPath(DIR_PLUGIN . 'Vizion');

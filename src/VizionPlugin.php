@@ -26,7 +26,7 @@ use Base3\Api\IRequest;
 use Base3\Translation\Api\ITranslation;
 use Vizion\Api\IReportConfigProvider;
 use Vizion\Api\IReportDisplay;
-use Vizion\Service\FileReportConfigProvider;
+use Vizion\Service\CompositeReportConfigProvider;
 use Vizion\ReportDisplay\GeneralReportDisplay;
 use Vizion\Api\IReportFilterService;
 use Vizion\Api\IReportCellRendererService;
@@ -53,7 +53,7 @@ class VizionPlugin implements IPlugin, ICheck {
 
 			->set(
 				IReportConfigProvider::class,
-				fn($c) => new FileReportConfigProvider($c->get(IClassMap::class)),
+				fn($c) => new CompositeReportConfigProvider($c->get(IClassMap::class)),
 				IContainer::SHARED | IContainer::NOOVERWRITE)
 
 			->set(
