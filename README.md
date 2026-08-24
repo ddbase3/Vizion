@@ -13,7 +13,8 @@ Vizion provides a growing collection of modular UI components for data visualiza
 * 📊 JSON-based report configuration with field-specific control options
 * ⚙️ Declarative display type switching (e.g., `DataTableReportDisplay`, `BarChartReportDisplay`, ...)
 * 🧩 Config loading via `IReportConfigProvider` (e.g., from file, DB or inline)
-* 📁 The central `CompositeReportConfigProvider` discovers independent report scopes through ResourceFoundation `IReportConfigDefinitionProvider` implementations
+* 📁 The central `CompositeReportConfigProvider` discovers independent technical report scopes through ResourceFoundation `IReportConfigDefinitionProvider` implementations
+* 🧭 User-facing reporting areas are resolved through ResourceFoundation `IReportingScopeRegistry`, so admin UIs expose domain labels such as `ILIAS` instead of technical provider scopes
 * 🔄 Dynamic Ajax support through `getOutput('json')`
 * 📐 Clean MVC rendering via `IMvcView` integration
 * 🔎 Sorting, paging, filtering, column visibility and layout control for tables
@@ -83,7 +84,7 @@ echo $display->getOutput('html');
 
 * `GeneralReportDisplay` is the dispatcher and also acts as a fallback `IDisplay`.
 * `IReportConfigProvider` resolves the report config by report key.
-* `CompositeReportConfigProvider` aggregates report-definition scopes discovered through `IClassMap`.
+* `CompositeReportConfigProvider` aggregates report-definition scopes discovered through `IClassMap` and resolves qualified `reporting-scope:report` identifiers through `IReportingScopeRegistry`.
 * Feature plugins contribute their own report scope through `IReportConfigDefinitionProvider` and do not replace the central Vizion service.
 * Unqualified report ids work while unique. Duplicate ids across scopes are addressed as `scope:report`.
 * `IDisplay` implementations (e.g. `DataTableReportDisplay`) render based on config.

@@ -25,10 +25,12 @@ Runtime report configuration is aggregated centrally by Vizion. A feature plugin
 
 The provider returns named datasets with an optional `enabled` flag and a `definition` array. The provider may read those datasets from `ISettingsStore`, files, or another backend. Vizion does not own the storage decision.
 
-Report ids can remain unqualified while they are unique across all active scopes. If the same id exists in multiple scopes, address it explicitly as:
+Report ids can remain unqualified while they are unique across all active technical report scopes. Feature plugins group those technical scopes through `IReportingScopeDefinitionProvider`, and Vizion can address a report through the user-facing reporting scope:
 
 ```text
-scope:report
+reporting-scope:report
 ```
+
+Technical `scope:report` lookup remains available internally.
 
 Use materialized report rows for fast interactive grids. Expensive live joins should be moved into DataHawk materializations first.

@@ -20,12 +20,14 @@ namespace Vizion\Service;
 
 use Base3\Api\IClassMap;
 use ResourceFoundation\Api\IReportConfigDefinitionProvider;
+use ResourceFoundation\Api\IReportingScopeRegistry;
 use Vizion\Api\IReportConfigProvider;
 
 final class CompositeReportConfigProvider implements IReportConfigProvider {
 
 	public function __construct(
-		private readonly IClassMap $classMap
+		private readonly IClassMap $classMap,
+		private readonly IReportingScopeRegistry $reportingScopeRegistry
 	) {}
 
 	public function getConfig(string $report): array {
@@ -39,6 +41,11 @@ final class CompositeReportConfigProvider implements IReportConfigProvider {
 
 		$providers = $this->getProviders();
 		if($scope !== null) {
+			$reportingScope = $this->reportingScopeRegistry->get($scope);
+			if($reportingScope !== null) {
+				return $this->getConfigFromProviderScopes($providers, $reportingScope->reportScopes, $localReport, $scope);
+			}
+
 			if(!isset($providers[$scope])) {
 				throw new \RuntimeException('Report scope not found: ' . $scope);
 			}
@@ -65,7 +72,39 @@ final class CompositeReportConfigProvider implements IReportConfigProvider {
 
 		if(count($matches) > 1) {
 			throw new \RuntimeException(
-				'Report identifier is not unique: ' . $localReport . ' (' . implode(', ', array_keys($matches)) . '). Use scope:report.'
+				'Report identifier is not unique: ' . $localReport . ' (' . implode(', ', array_keys($matches)) . '). Use reporting-scope:report.'
+			);
+		}
+
+		return reset($matches);
+	}
+
+	/**
+	 * @param array<string,IReportConfigDefinitionProvider> $providers
+	 * @param string[] $providerScopes
+	 */
+	private function getConfigFromProviderScopes(array $providers, array $providerScopes, string $report, string $reportingScope): array {
+		$matches = [];
+		foreach($providerScopes as $providerScope) {
+			$provider = $providers[$providerScope] ?? null;
+			if(!$provider instanceof IReportConfigDefinitionProvider) {
+				continue;
+			}
+
+			$definition = $this->getDefinition($provider, $providerScope, $report);
+			if($definition !== null) {
+				$matches[$providerScope] = $definition;
+			}
+		}
+
+		if($matches === []) {
+			throw new \RuntimeException('Report not found: ' . $reportingScope . ':' . $report);
+		}
+
+		if(count($matches) > 1) {
+			throw new \RuntimeException(
+				'Report identifier is not unique inside reporting scope ' . $reportingScope . ': ' . $report .
+				' (' . implode(', ', array_keys($matches)) . ')'
 			);
 		}
 

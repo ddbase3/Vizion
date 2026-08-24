@@ -19,9 +19,10 @@
 namespace Vizion\Display;
 
 use Base3\Api\IAssetResolver;
-use Base3\Api\IMvcView;
 use Base3\Api\IDisplay;
+use Base3\Api\IMvcView;
 use ResourceFoundation\Api\IQuerySchemaProvider;
+use ResourceFoundation\Api\IReportingScopeRegistry;
 use ResourceFoundation\Api\IScopedQuerySchemaProvider;
 
 class DataHawkSchemaDisplay implements IDisplay {
@@ -33,6 +34,7 @@ class DataHawkSchemaDisplay implements IDisplay {
 	public function __construct(
 		private readonly IMvcView $view,
 		private readonly IQuerySchemaProvider $queryschemaprovider,
+		private readonly IReportingScopeRegistry $reportingScopeRegistry,
 		private readonly IAssetResolver $assetResolver
 	) {}
 
@@ -54,43 +56,44 @@ class DataHawkSchemaDisplay implements IDisplay {
 		$this->loadTranslations();
 
 		$scopeData = [];
-		$scopes = [];
-		$defaultScope = '';
+		$scopeOptions = [];
 
-		if ($this->queryschemaprovider instanceof IScopedQuerySchemaProvider) {
-			$scopes = $this->queryschemaprovider->getScopes();
-			$defaultScope = $this->queryschemaprovider->getDefaultScope();
+		if($this->queryschemaprovider instanceof IScopedQuerySchemaProvider) {
+			$availableScopes = $this->queryschemaprovider->getScopes();
 
-			foreach ($scopes as $scope) {
-				$scopeData[$scope] = $this->buildSchemaData(
-					$this->queryschemaprovider->getSchemaForScope($scope)
-				);
+			foreach($this->reportingScopeRegistry->getScopes() as $reportingScope) {
+				$schema = [];
+				foreach($reportingScope->querySchemaScopes as $queryScope) {
+					if(!in_array($queryScope, $availableScopes, true)) {
+						continue;
+					}
+
+					$schema = array_merge(
+						$schema,
+						$this->queryschemaprovider->getSchemaForScope($queryScope)
+					);
+				}
+
+				$scopeData[$reportingScope->id] = $this->buildSchemaData($schema);
+				$scopeOptions[] = [
+					'id' => $reportingScope->id,
+					'label' => $reportingScope->label,
+				];
 			}
 		}
-		else {
-			$defaultScope = 'default';
-			$scopes = [$defaultScope];
-			$scopeData[$defaultScope] = $this->buildSchemaData(
-				$this->queryschemaprovider->getSchema()
-			);
-		}
 
-		$selectedScope = $defaultScope;
-		if (is_array($this->displayData) && isset($this->displayData['scope'])) {
-			$candidate = trim((string)$this->displayData['scope']);
-			if ($candidate !== '' && array_key_exists($candidate, $scopeData)) {
+		$selectedScope = $scopeOptions !== [] ? (string)$scopeOptions[0]['id'] : '';
+		if(is_array($this->displayData) && isset($this->displayData['reportingScope'])) {
+			$candidate = trim((string)$this->displayData['reportingScope']);
+			if($candidate !== '' && array_key_exists($candidate, $scopeData)) {
 				$selectedScope = $candidate;
 			}
-		}
-
-		if ($selectedScope === '' && $scopes !== []) {
-			$selectedScope = (string)reset($scopes);
 		}
 
 		$this->view->setPath(DIR_PLUGIN . 'Vizion');
 		$this->view->setTemplate('Display/DataHawkSchemaDisplay.php');
 		$this->view->assign('scopeData', $scopeData);
-		$this->view->assign('scopes', $scopes);
+		$this->view->assign('scopeOptions', $scopeOptions);
 		$this->view->assign('selectedScope', $selectedScope);
 		$this->view->assign('resolve', fn($src) => $this->assetResolver->resolve($src));
 		$this->view->assign('translations', $this->translations);
@@ -100,14 +103,14 @@ class DataHawkSchemaDisplay implements IDisplay {
 	private function buildSchemaData(array $schema): array {
 		$data = ['data' => [], 'foreignKeys' => []];
 
-		foreach ($schema as $table) {
-			if ($this->displayData != null && isset($this->displayData['domain']) && $table->domain != $this->displayData['domain']) continue;
-			if ($this->displayData != null && isset($this->displayData['tags']) && empty(array_intersect($table->tags, $this->displayData['tags']))) continue;
+		foreach($schema as $table) {
+			if($this->displayData != null && isset($this->displayData['domain']) && $table->domain != $this->displayData['domain']) continue;
+			if($this->displayData != null && isset($this->displayData['tags']) && empty(array_intersect($table->tags, $this->displayData['tags']))) continue;
 
 			$fields = [];
 			$primaryKeys = [];
-			foreach ($table->fields as $field) {
-				if ($field->primaryKey) $primaryKeys[] = $field->name;
+			foreach($table->fields as $field) {
+				if($field->primaryKey) $primaryKeys[] = $field->name;
 				$fields[] = [
 					'name' => $field->name,
 					'type' => ($field->nullable ? '?' : '') . $field->type
@@ -121,8 +124,8 @@ class DataHawkSchemaDisplay implements IDisplay {
 				'position' => array_merge(['x' => 100, 'y' => 100], $table->position ?? [])
 			];
 
-			foreach ($table->joins as $join) {
-				foreach ($join->on as $from => $to) {
+			foreach($table->joins as $join) {
+				foreach($join->on as $from => $to) {
 					$fromParts = explode('.', $from);
 					$toParts = explode('.', $to);
 					$data['foreignKeys'][] = [
@@ -154,7 +157,7 @@ class DataHawkSchemaDisplay implements IDisplay {
 
 	private function t(string $key, string $fallback, mixed ...$values): string {
 		$text = trim((string)($this->translations[$key] ?? ''));
-		if ($text === '') {
+		if($text === '') {
 			$text = $fallback;
 		}
 

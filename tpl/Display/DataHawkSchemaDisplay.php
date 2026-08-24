@@ -1,7 +1,7 @@
 <?php
 	$schemaContainerId = 'datahawkschema_' . uniqid();
 	$scopeData = is_array($this->_['scopeData'] ?? null) ? $this->_['scopeData'] : [];
-	$scopes = is_array($this->_['scopes'] ?? null) ? $this->_['scopes'] : [];
+	$scopeOptions = is_array($this->_['scopeOptions'] ?? null) ? $this->_['scopeOptions'] : [];
 	$selectedScope = (string)($this->_['selectedScope'] ?? '');
 	$translations = is_array($this->_['translations'] ?? null) ? $this->_['translations'] : [];
 	$t = static function(string $key, string $fallback) use ($translations): string {
@@ -9,24 +9,30 @@
 		return $value !== '' ? $value : $fallback;
 	};
 	$scopeContainers = [];
-	foreach ($scopes as $index => $scope) {
-		$scopeContainers[(string)$scope] = $schemaContainerId . '_' . $index;
+	foreach($scopeOptions as $index => $scopeOption) {
+		$scopeId = (string)($scopeOption['id'] ?? '');
+		if($scopeId === '') continue;
+		$scopeContainers[$scopeId] = $schemaContainerId . '_' . $index;
 	}
 ?>
 <div class="datahawkschema-shell">
-	<?php if (count($scopes) > 1): ?>
+	<?php if(count($scopeOptions) > 1): ?>
 		<div class="datahawkschema-toolbar">
-			<label for="<?php echo $schemaContainerId; ?>_scope"><?php echo htmlspecialchars($t('scope', 'Scope'), ENT_QUOTES); ?></label>
+			<label for="<?php echo $schemaContainerId; ?>_scope"><?php echo htmlspecialchars($t('reporting_scope', 'Reporting'), ENT_QUOTES); ?></label>
 			<select id="<?php echo $schemaContainerId; ?>_scope">
-				<?php foreach ($scopes as $scope): ?>
-					<option value="<?php echo htmlspecialchars((string)$scope, ENT_QUOTES); ?>"<?php echo (string)$scope === $selectedScope ? ' selected' : ''; ?>><?php echo htmlspecialchars((string)$scope, ENT_QUOTES); ?></option>
+				<?php foreach($scopeOptions as $scopeOption): ?>
+					<?php
+						$scopeId = (string)($scopeOption['id'] ?? '');
+						$scopeLabel = (string)($scopeOption['label'] ?? $scopeId);
+					?>
+					<option value="<?php echo htmlspecialchars($scopeId, ENT_QUOTES); ?>"<?php echo $scopeId === $selectedScope ? ' selected' : ''; ?>><?php echo htmlspecialchars($scopeLabel, ENT_QUOTES); ?></option>
 				<?php endforeach; ?>
 			</select>
 		</div>
 	<?php endif; ?>
 
-	<?php foreach ($scopeContainers as $scope => $containerId): ?>
-		<div id="<?php echo $containerId; ?>" class="datahawkschema" data-scope="<?php echo htmlspecialchars($scope, ENT_QUOTES); ?>"></div>
+	<?php foreach($scopeContainers as $scope => $containerId): ?>
+		<div id="<?php echo $containerId; ?>" class="datahawkschema" data-reporting-scope="<?php echo htmlspecialchars($scope, ENT_QUOTES); ?>"></div>
 	<?php endforeach; ?>
 </div>
 
@@ -75,9 +81,10 @@
 			}
 		}
 
-		if (document.readyState === 'loading') {
-			document.addEventListener('DOMContentLoaded', boot, { once: true });
-		} else {
+		if(document.readyState === 'loading') {
+			document.addEventListener('DOMContentLoaded', boot, {once: true});
+		}
+		else {
 			boot();
 		}
 	})();
