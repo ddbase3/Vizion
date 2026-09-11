@@ -3,10 +3,16 @@
 	$gridId = $containerId . '_grid';
 	$logId = $containerId . '_log';
 	$json = static function($value): string {
-		return json_encode(
+		$encoded = json_encode(
 			$value,
 			JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR
 		);
+
+		return preg_replace_callback(
+			'/\{([A-Za-z][A-Za-z0-9_]*)\}/',
+			static fn(array $matches): string => '\\u007B' . $matches[1] . '\\u007D',
+			$encoded
+		) ?? $encoded;
 	};
 	$translations = is_array($this->_['translations'] ?? null) ? $this->_['translations'] : [];
 	$modularGridStrings = $this->getBricks('clientstack_modulargrid');
