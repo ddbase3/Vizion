@@ -48,16 +48,18 @@ class GeneralReportDisplay implements IReportDisplay {
 
 	public function getOutput(string $out = 'html', bool $final = false): string {
 		try {
-			return $this->renderReport($out);
+			return $this->renderReport($out, $final);
 		}
 		catch(Throwable $exception) {
-			return strtolower($out) === 'json'
-				? $this->renderJsonError($exception, $final)
-				: $this->renderHtmlError($exception);
+			return match(strtolower($out)) {
+				'json' => $this->renderJsonError($exception, $final),
+				'export' => $this->renderExportError($exception, $final),
+				default => $this->renderHtmlError($exception),
+			};
 		}
 	}
 
-	private function renderReport(string $out): string {
+	private function renderReport(string $out, bool $final): string {
 		if (!$this->report) {
 			$this->report = $this->request->get("report");
 			if (!$this->report) {
@@ -74,7 +76,7 @@ class GeneralReportDisplay implements IReportDisplay {
 		if (!$display) throw new \Exception($this->t('error_invalid_display', 'Invalid display: %s', $displayName));
 
 		$display->setData($this->config);
-		return $display->getOutput($out);
+		return $display->getOutput($out, $final);
 	}
 
 	private function renderJsonError(Throwable $exception, bool $final): string {
@@ -91,6 +93,15 @@ class GeneralReportDisplay implements IReportDisplay {
 			'datasets' => [],
 			'total' => 0
 		], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+	}
+
+	private function renderExportError(Throwable $exception, bool $final): string {
+		if($final && !headers_sent()) {
+			header('Content-Type: text/plain; charset=utf-8');
+			http_response_code(400);
+		}
+
+		return $exception->getMessage();
 	}
 
 	private function renderHtmlError(Throwable $exception): string {

@@ -10,6 +10,7 @@ use Vizion\Api\IReportDisplay;
 use Vizion\Api\IReportFilterService;
 use Vizion\Api\IReportCellRendererService;
 use Vizion\Api\IReportChartService;
+use Vizion\Service\ModularGridReportQueryBuilder;
 
 final class VizionPluginTest extends TestCase {
 
@@ -75,6 +76,15 @@ final class VizionPluginTest extends TestCase {
 
 		$this->assertRegistration(
 			$calls,
+			ModularGridReportQueryBuilder::class,
+			IContainer::SHARED | IContainer::NOOVERWRITE,
+			function($definition): void {
+				$this->assertIsCallable($definition);
+			}
+		);
+
+		$this->assertRegistration(
+			$calls,
 			IReportChartService::class,
 			IContainer::SHARED | IContainer::NOOVERWRITE,
 			function($definition): void {
@@ -96,7 +106,6 @@ final class VizionPluginTest extends TestCase {
 		$container = $this->createStub(IContainer::class);
 		$container->method('get')->willReturnCallback(function(string $name) {
 			return match ($name) {
-				'datahawkplugin',
 				'clientstackplugin',
 				'resourcefoundationplugin' => new \stdClass(),
 				default => null,
@@ -106,7 +115,6 @@ final class VizionPluginTest extends TestCase {
 		$plugin = new VizionPlugin($container);
 		$result = $plugin->checkDependencies();
 
-		$this->assertSame('Ok', $result['datahawkplugin_installed'] ?? null);
 		$this->assertSame('Ok', $result['clientstackplugin_installed'] ?? null);
 		$this->assertSame('Ok', $result['resourcefoundationplugin_installed'] ?? null);
 	}
@@ -118,7 +126,6 @@ final class VizionPluginTest extends TestCase {
 		$plugin = new VizionPlugin($container);
 		$result = $plugin->checkDependencies();
 
-		$this->assertSame('datahawkplugin not installed', $result['datahawkplugin_installed'] ?? null);
 		$this->assertSame('clientstackplugin not installed', $result['clientstackplugin_installed'] ?? null);
 		$this->assertSame('resourcefoundationplugin not installed', $result['resourcefoundationplugin_installed'] ?? null);
 	}

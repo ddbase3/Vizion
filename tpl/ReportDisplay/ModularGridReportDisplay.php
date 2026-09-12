@@ -221,10 +221,14 @@
 		SessionStoragePlugin
 	} from '<?php echo htmlspecialchars((string) $this->_['modulargridJsUrl'], ENT_QUOTES); ?>';
 
+	const exportPluginModule = await import(new URL(<?php echo $json((string) $this->_['modulargridExportPluginJsUrl']); ?>, document.baseURI).href);
+	const ExportPlugin = exportPluginModule.ExportPlugin;
 	const chronoPickerModule = await import(new URL(<?php echo $json((string) $this->_['chronoPickerJsUrl']); ?>, document.baseURI).href);
 	const filterControlsModule = await import(new URL(<?php echo $json((string) $this->_['filterControlsJsUrl']); ?>, document.baseURI).href);
 	const cellRenderersModule = await import(new URL(<?php echo $json((string) $this->_['cellRenderersJsUrl']); ?>, document.baseURI).href);
 	const ENDPOINT_URL = <?php echo $json((string) $this->_['ajaxUrl']); ?>;
+	const EXPORT_URL = <?php echo $json((string) $this->_['exportUrl']); ?>;
+	const EXPORT_OPTIONS = <?php echo $json($this->_['exportOptions']); ?>;
 	const GRID_SELECTOR = <?php echo $json('#' . $gridId); ?>;
 	const LOG_SELECTOR = <?php echo $json('#' . $logId); ?>;
 	const REPORT_COLUMNS = <?php echo $json($this->_['columns']); ?>;
@@ -295,7 +299,7 @@
 		logElement.innerHTML = '<strong>' + tr('last_action', 'Last action:') + '</strong> ' + message;
 	}
 
-	function getText(value, placeholder = '—') {
+	function getText(value, placeholder = '-') {
 		if (value === null || value === undefined || value === '') {
 			return placeholder;
 		}
@@ -428,26 +432,75 @@
 		const defaultSortDirection = REPORT_CONFIG?.config?.sortDirection || 'asc';
 		let grid = null;
 
+		function buildReportRequest(request = {}) {
+			const state = grid ? grid.getState() : {};
+			const query = state.query || {};
+			const filters = reportFilterTools.buildFilterPayload(state.filters || {}, FILTER_FIELDS);
+			const sortKey = request.sortKey || query.sortKey || defaultSortKey;
+			const sortDirection = request.sortDirection || query.sortDirection || defaultSortDirection;
+
+			return {
+				mode: 'page',
+				page: request.page || query.page || 1,
+				pageSize: request.pageSize || query.pageSize || BATCH_SIZE,
+				search: request.search ?? query.search ?? '',
+				sort: sortKey ? [{ key: sortKey, dir: sortDirection, type: sortTypes[sortKey] || 'string' }] : [],
+				filters,
+				group: []
+			};
+		}
+
+		function getExportFileName(response) {
+			const disposition = response.headers.get('Content-Disposition') || '';
+			const quotedMatch = disposition.match(/filename="([^"]+)"/i);
+			if (quotedMatch && quotedMatch[1]) {
+				return quotedMatch[1];
+			}
+
+			const plainMatch = disposition.match(/filename=([^;]+)/i);
+			if (plainMatch && plainMatch[1]) {
+				return plainMatch[1].trim();
+			}
+
+			return 'report-export';
+		}
+
+		async function downloadReportExport(exportRequest) {
+			const response = await fetch(EXPORT_URL, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					exporter: exportRequest.exporter,
+					scope: exportRequest.scope,
+					fields: exportRequest.fields,
+					selectedRowIds: exportRequest.selectedRowIds,
+					request: buildReportRequest()
+				})
+			});
+
+			if (!response.ok) {
+				const message = (await response.text()).trim();
+				throw new Error(message || tr('export_failed', 'Export failed.'));
+			}
+
+			const blob = await response.blob();
+			const objectUrl = URL.createObjectURL(blob);
+			const link = document.createElement('a');
+			link.href = objectUrl;
+			link.download = getExportFileName(response);
+			document.body.appendChild(link);
+			link.click();
+			link.remove();
+			URL.revokeObjectURL(objectUrl);
+		}
+
 		const adapter = new AjaxAdapter({
 			url: ENDPOINT_URL,
 			method: 'POST',
 			rowsPath: 'data',
 			totalPath: 'total',
 			mapRequest(request) {
-				const state = grid ? grid.getState() : {};
-				const filters = reportFilterTools.buildFilterPayload(state.filters || {}, FILTER_FIELDS);
-				const sortKey = request.sortKey || defaultSortKey;
-				const sortDirection = request.sortDirection || defaultSortDirection;
-
-				return {
-					mode: 'page',
-					page: request.page || 1,
-					pageSize: request.pageSize || BATCH_SIZE,
-					search: request.search || '',
-					sort: sortKey ? [{ key: sortKey, dir: sortDirection, type: sortTypes[sortKey] || 'string' }] : [],
-					filters,
-					group: []
-				};
+				return buildReportRequest(request);
 			}
 		});
 
@@ -472,6 +525,7 @@
 				RowActionsPlugin,
 				BulkActionsPlugin,
 				ResetPlugin,
+				ExportPlugin,
 				SessionStoragePlugin,
 				RowDetailPlugin,
 				InfiniteScrollPlugin
@@ -505,6 +559,14 @@
 						{ key: 'clear-selection', label: tr('clear_selection', 'Clear selection'), command: 'clearSelection' }
 					]
 				},
+				export: {
+					zone: 'topLine1',
+					order: 40,
+					...EXPORT_OPTIONS,
+					onExport(exportRequest) {
+						return downloadReportExport(exportRequest);
+					}
+				},
 				rowActions: {
 					headerMenu: {
 						enabled: true,
@@ -513,7 +575,7 @@
 					},
 					items: [{ key: 'copy-clipboard', label: tr('copy_to_clipboard', 'Copy to clipboard'), onClick(context) { copyReportRow(context.row); } }]
 				},
-				reset: { zone: 'topLine1', order: 40, label: tr('reset', 'Reset'), sections: ['query', 'filters', 'filterVisibility', 'columns', 'selection', 'detailView'] },
+				reset: { zone: 'topLine1', order: 35, label: tr('reset', 'Reset'), sections: ['query', 'filters', 'filterVisibility', 'columns', 'selection', 'detailView'] },
 				sessionStorage: { key: 'vizion-modulargrid-' + (REPORT_CONFIG?.report || 'report') + '-' + FILTER_STORAGE_SIGNATURE, sections: ['query', 'filters', 'filterVisibility', 'columns', 'selection', 'detailView'] },
 				info: { zone: 'statusZone', order: 10, displayMode: 'loaded' },
 				rowDetail: { rowIdKey: '__row_key', clearOnDataReload: true, detailRenderer(row) { return createDetailContent(row); } },

@@ -19,15 +19,18 @@
 namespace Vizion\ReportDisplay;
 
 use Base3\Api\IAssetResolver;
+use Base3\Api\IClassMap;
 use Base3\Api\IDisplay;
 use Base3\Api\IMvcView;
 use Base3\Api\IRequest;
 use Base3\LinkTarget\Api\ILinkTargetService;
 use Base3\Logger\Api\ILogger;
 use ResourceFoundation\Api\IQueryService;
+use ResourceFoundation\Api\IReportExporter;
 use ResourceFoundation\Dto\QueryResult;
 use Vizion\Api\IReportCellRendererService;
 use Vizion\Api\IReportFilterService;
+use Vizion\Service\ModularGridReportQueryBuilder;
 
 class ModularGridReportDisplay implements IDisplay {
 
@@ -45,8 +48,10 @@ class ModularGridReportDisplay implements IDisplay {
 		private readonly ILogger $logger,
 		private readonly ILinkTargetService $linkTargetService,
 		private readonly IAssetResolver $assetResolver,
+		private readonly IClassMap $classmap,
 		private readonly IReportFilterService $reportFilterService,
-		private readonly IReportCellRendererService $reportCellRendererService
+		private readonly IReportCellRendererService $reportCellRendererService,
+		private readonly ModularGridReportQueryBuilder $queryBuilder
 	) {}
 
 	public static function getName(): string {
@@ -63,9 +68,17 @@ class ModularGridReportDisplay implements IDisplay {
 
 	public function getOutput(string $out = 'html', bool $final = false): string {
 		$this->loadTranslations();
-		return strtolower($out) === 'json'
-			? $this->getJsonOutput($final)
-			: $this->getHtmlOutput();
+		$out = strtolower($out);
+
+		if($out === 'json') {
+			return $this->getJsonOutput($final);
+		}
+
+		if($out === 'export') {
+			return $this->getExportOutput($final);
+		}
+
+		return $this->getHtmlOutput();
 	}
 
 	private function getJsonOutput(bool $final = false): string {
@@ -91,7 +104,7 @@ class ModularGridReportDisplay implements IDisplay {
 			header('Content-Type: application/json; charset=utf-8');
 		}
 
-		return (string) json_encode(
+		return (string)json_encode(
 			$response,
 			JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
 		);
@@ -102,22 +115,20 @@ class ModularGridReportDisplay implements IDisplay {
 	 */
 	private function buildJsonResponse(): array {
 		$payload = $this->request->getJsonBody();
-
 		if(!is_array($payload)) {
 			$payload = [];
 		}
 
-		$request = $this->normalizeRequest($payload);
+		$config = $this->config ?? [];
+		$request = $this->queryBuilder->normalizeRequest($payload, $config);
 		$fields = $this->getFields();
-		$fieldDefs = $this->buildFieldDefs($fields);
-
-		$baseQuery = $this->buildBaseQuery($fieldDefs, $request['search'], $request['filters']);
-		$total = $this->loadTotal($baseQuery, $fields);
+		$baseQuery = $this->queryBuilder->buildBaseQuery($config, $request);
+		$total = $this->loadTotal($baseQuery);
 		$pageSize = $request['pageSize'];
 		$page = $request['page'];
-		$totalPages = $pageSize > 0 ? (int) ceil($total / $pageSize) : 0;
+		$totalPages = $pageSize > 0 ? (int)ceil($total / $pageSize) : 0;
 
-		$dataQuery = $this->buildDataQuery($baseQuery, $fields, $fieldDefs, $request);
+		$dataQuery = $this->queryBuilder->buildDataQuery($config, $baseQuery, $request);
 		$result = $this->reportqueryservice->executeQuery($dataQuery);
 
 		if($this->logSql) {
@@ -155,36 +166,86 @@ class ModularGridReportDisplay implements IDisplay {
 		];
 	}
 
-
-	/**
-	 * @param array<string, mixed> $row
-	 */
-	private function buildRowKey(array $row, int $fallback): string {
-		$normalized = [];
-
-		foreach($row as $key => $value) {
-			$key = (string) $key;
-
-			if(str_starts_with($key, '__')) {
-				continue;
+	private function getExportOutput(bool $final): string {
+		try {
+			$payload = $this->request->getJsonBody();
+			if(!is_array($payload)) {
+				$payload = [];
 			}
 
-			if(is_scalar($value) || $value === null) {
-				$normalized[$key] = $value;
-				continue;
+			$config = $this->config ?? [];
+			$exportConfig = $this->getExportConfig();
+			$exporterName = is_scalar($payload['exporter'] ?? null) ? trim((string)$payload['exporter']) : '';
+			$allowedExporters = $this->getConfiguredExporterNames($exportConfig);
+
+			if($exporterName === '' || !in_array($exporterName, $allowedExporters, true)) {
+				throw new \RuntimeException($this->t('export_invalid_exporter', 'The requested exporter is not configured for this report.'));
 			}
 
-			$normalized[$key] = json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+			$exporter = $this->classmap->getInstanceByInterfaceName(IReportExporter::class, $exporterName);
+			if(!$exporter instanceof IReportExporter) {
+				throw new \RuntimeException($this->t('export_unavailable_exporter', 'The requested exporter is not available.'));
+			}
+
+			$scope = is_scalar($payload['scope'] ?? null) ? strtolower(trim((string)$payload['scope'])) : 'filtered';
+			if(!in_array($scope, ['selected', 'filtered', 'all'], true)) {
+				throw new \RuntimeException($this->t('export_invalid_scope', 'The requested export scope is invalid.'));
+			}
+
+			$fieldAliases = $this->resolveExportFieldAliases($payload['fields'] ?? null, $exportConfig);
+			if($fieldAliases === []) {
+				throw new \RuntimeException($this->t('export_no_fields', 'Select at least one field for export.'));
+			}
+
+			$requestPayload = isset($payload['request']) && is_array($payload['request']) ? $payload['request'] : [];
+			$request = $scope === 'all'
+				? $this->queryBuilder->normalizeRequest([], $config)
+				: $this->queryBuilder->normalizeRequest($requestPayload, $config);
+			$baseQuery = $this->queryBuilder->buildBaseQuery($config, $request);
+
+			if($scope === 'selected') {
+				$selectedRowIds = $this->normalizeSelectedRowIds($payload['selectedRowIds'] ?? null);
+				if($selectedRowIds === []) {
+					throw new \RuntimeException($this->t('export_no_selection', 'Select at least one row for this export.'));
+				}
+
+				$allRequest = $this->queryBuilder->normalizeRequest([], $config);
+				$selectionBaseQuery = $this->queryBuilder->buildBaseQuery($config, $allRequest);
+				$query = $this->queryBuilder->buildDataQuery($config, $selectionBaseQuery, $allRequest, null, false);
+				$result = $this->reportqueryservice->executeQuery($query);
+				$result = $this->filterSelectedResult($result, $selectedRowIds);
+				$result = $this->projectExportResult($result, $fieldAliases);
+			}
+			else {
+				$query = $this->queryBuilder->buildDataQuery($config, $baseQuery, $request, $fieldAliases, false);
+				$result = $this->reportqueryservice->executeQuery($query);
+				$result = $this->projectExportResult($result, $fieldAliases);
+			}
+
+			if($this->logSql) {
+				$this->logger->log('Vizion', 'MODULARGRID EXPORT | ' . $result->debugSql);
+			}
+
+			$exporter->setResult($result);
+			$content = $exporter->toString();
+			$fileName = $this->buildExportFileName($exporter);
+
+			if($final && !headers_sent()) {
+				header('Content-Type: ' . $exporter->getMimeType());
+				header('Content-Disposition: attachment; filename="' . $fileName . '"');
+				header('X-Content-Type-Options: nosniff');
+			}
+
+			return $content;
 		}
+		catch(\Throwable $exception) {
+			if($final && !headers_sent()) {
+				header('Content-Type: text/plain; charset=utf-8');
+				http_response_code(400);
+			}
 
-		ksort($normalized);
-		$encoded = json_encode($normalized, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-
-		if(!is_string($encoded) || $encoded === '') {
-			$encoded = 'fallback-' . (string) $fallback;
+			return $exception->getMessage();
 		}
-
-		return 'report-row-' . substr(sha1($encoded), 0, 20);
 	}
 
 	private function getHtmlOutput(): string {
@@ -206,193 +267,42 @@ class ModularGridReportDisplay implements IDisplay {
 				'report' => $report
 			]
 		);
+		$exportUrl = $this->linkTargetService->getLink(
+			[
+				'name' => 'generalreportdisplay',
+				'out' => 'export'
+			],
+			[
+				'report' => $report
+			]
+		);
 
 		$this->view->assign('ajaxUrl', $ajaxUrl);
+		$this->view->assign('exportUrl', $exportUrl);
+		$this->view->assign('exportOptions', $this->buildExportOptions());
 		$this->view->assign('columns', $columns);
 		$this->view->assign('filterFields', $filterFields);
 		$this->view->assign('filterInitialValues', $filterInitialValues);
 		$this->view->assign('config', $this->config ?? []);
 		$this->view->assign('modulargridCssUrl', $this->assetResolver->resolve('plugin/ClientStack/assets/modulargrid/styles/modulargrid.css'));
 		$this->view->assign('modulargridJsUrl', $this->assetResolver->resolve('plugin/ClientStack/assets/modulargrid/index.js'));
+		$this->view->assign('modulargridExportPluginJsUrl', $this->assetResolver->resolve('plugin/ClientStack/assets/modulargrid/plugins/ExportPlugin.js'));
 		$this->view->assign('chronoPickerCssUrl', $this->assetResolver->resolve('plugin/ClientStack/assets/chronopicker/styles/chronopicker.css'));
 		$this->view->assign('chronoPickerJsUrl', $this->assetResolver->resolve('plugin/ClientStack/assets/chronopicker/index.js'));
 		$this->view->assign('filterControlsJsUrl', $this->assetResolver->resolve('plugin/Vizion/assets/js/vizion-report-filter-controls.js'));
 		$this->view->assign('cellRenderersJsUrl', $this->assetResolver->resolve('plugin/Vizion/assets/js/vizion-report-cell-renderers.js'));
-
 		$this->view->assign('translations', $this->translations);
+
 		return $this->view->loadTemplate();
 	}
 
 	/**
-	 * @param array<string, mixed> $payload
-	 * @return array<string, mixed>
-	 */
-	private function normalizeRequest(array $payload): array {
-		$page = isset($payload['page']) ? (int) $payload['page'] : 1;
-		$page = max(1, $page);
-
-		$pageSize = isset($payload['pageSize'])
-			? (int) $payload['pageSize']
-			: (int) ($this->config['config']['pageSize'] ?? 25);
-		$pageSize = max(1, min(250, $pageSize));
-
-		$search = '';
-		if(isset($payload['search']) && is_scalar($payload['search'])) {
-			$search = trim((string) $payload['search']);
-		}
-
-		$sort = $this->normalizeSort($payload['sort'] ?? null);
-		$filters = $this->reportFilterService->normalizeFilters($payload['filters'] ?? null, $this->getFields());
-
-		return [
-			'page' => $page,
-			'pageSize' => $pageSize,
-			'search' => $search,
-			'sort' => $sort,
-			'filters' => $filters,
-		];
-	}
-
-	/**
-	 * @param mixed $sortPayload
-	 * @return array<string, string>
-	 */
-	private function normalizeSort(mixed $sortPayload): array {
-		$fields = $this->getFields();
-		$fieldDefs = $this->buildFieldDefs($fields);
-		$defaultKey = (string) ($this->config['config']['sortColumn'] ?? ($fields[0]['alias'] ?? ''));
-		$defaultDirection = strtolower((string) ($this->config['config']['sortDirection'] ?? 'asc')) === 'desc' ? 'desc' : 'asc';
-
-		if($defaultKey === '' || !isset($fieldDefs[$defaultKey])) {
-			$defaultKey = (string) ($fields[0]['alias'] ?? '');
-		}
-
-		$sort = [
-			'key' => $defaultKey,
-			'dir' => $defaultDirection,
-			'type' => 'string',
-		];
-
-		if(!is_array($sortPayload) || count($sortPayload) === 0) {
-			return $sort;
-		}
-
-		$first = reset($sortPayload);
-
-		if(!is_array($first)) {
-			return $sort;
-		}
-
-		$key = isset($first['key']) ? (string) $first['key'] : $defaultKey;
-		if(!isset($fieldDefs[$key])) {
-			$key = $defaultKey;
-		}
-
-		$dir = isset($first['dir']) ? strtolower((string) $first['dir']) : $defaultDirection;
-		$dir = $dir === 'desc' ? 'desc' : 'asc';
-
-		return [
-			'key' => $key,
-			'dir' => $dir,
-			'type' => $this->getFieldSortType($key),
-		];
-	}
-
-	/**
-	 * @param array<string, mixed> $fieldDefs
-	 * @param array<string, mixed> $filters
-	 * @return array<string, mixed>
-	 */
-	private function buildBaseQuery(array $fieldDefs, string $search, array $filters): array {
-		$baseQuery = $this->config ?? [];
-		$baseQuery['type'] = 'select';
-
-		$where = $this->config['where'] ?? null;
-		$whereParams = $where ? [$where] : [];
-
-		if($search !== '') {
-			$searchParams = [];
-
-			foreach($this->getSearchFieldDefs() as $element) {
-				$searchParams[] = [
-					'type' => 'op',
-					'operator' => 'LIKE',
-					'params' => [$element, '%' . $search . '%']
-				];
-			}
-
-			if(count($searchParams) === 1) {
-				$whereParams[] = $searchParams[0];
-			}
-			elseif(count($searchParams) > 1) {
-				$whereParams[] = [
-					'type' => 'op',
-					'operator' => 'OR',
-					'params' => $searchParams
-				];
-			}
-		}
-
-		$filterWhere = $this->reportFilterService->buildFilterWhere($filters, $this->getFields(), $fieldDefs);
-
-		if($filterWhere !== null) {
-			$whereParams[] = $filterWhere;
-		}
-
-		if(count($whereParams) === 1) {
-			$baseQuery['where'] = $whereParams[0];
-		}
-		elseif(count($whereParams) > 1) {
-			$baseQuery['where'] = [
-				'type' => 'op',
-				'operator' => 'AND',
-				'params' => $whereParams
-			];
-		}
-		else {
-			unset($baseQuery['where']);
-		}
-
-		return $baseQuery;
-	}
-
-	/**
 	 * @param array<string, mixed> $baseQuery
-	 * @param array<int, array<string, mixed>> $fields
 	 */
-	private function loadTotal(array $baseQuery, array $fields): int {
-		$countQuery = $baseQuery;
-		$countQuery['fields'] = [];
-
-		foreach($fields as $field) {
-			$countQuery['fields'][] = [
-				'element' => $field['element'],
-				'alias' => $field['alias']
-			];
-		}
-
-		$countQuery['fields'][] = [
-			'element' => [
-				'type' => 'windowfn',
-				'function' => 'COUNT',
-				'params' => ['*'],
-				'over' => []
-			],
-			'alias' => '__total__'
-		];
-
-		if(isset($this->config['group_by'])) {
-			$countQuery['group_by'] = $this->config['group_by'];
-		}
-
-		if(isset($this->config['having'])) {
-			$countQuery['having'] = $this->config['having'];
-		}
-
-		unset($countQuery['limit'], $countQuery['offset'], $countQuery['order_by']);
-
+	private function loadTotal(array $baseQuery): int {
+		$countQuery = $this->queryBuilder->buildCountQuery($this->config ?? [], $baseQuery);
 		$result = $this->reportqueryservice->executeQuery($countQuery);
-		$total = (int) ($result->rows[0]['__total__'] ?? 0);
+		$total = (int)($result->rows[0]['__total__'] ?? 0);
 
 		if($this->logSql) {
 			$this->logger->log('Vizion', 'MODULARGRID CNT | ' . $result->debugSql);
@@ -402,116 +312,324 @@ class ModularGridReportDisplay implements IDisplay {
 	}
 
 	/**
-	 * @param array<string, mixed> $baseQuery
-	 * @param array<int, array<string, mixed>> $fields
-	 * @param array<string, mixed> $fieldDefs
-	 * @param array<string, mixed> $request
-	 * @return array<string, mixed>
-	 */
-	private function buildDataQuery(array $baseQuery, array $fields, array $fieldDefs, array $request): array {
-		$dataQuery = $baseQuery;
-		$dataQuery['fields'] = [];
-
-		foreach($fields as $field) {
-			$dataQuery['fields'][] = [
-				'element' => $field['element'],
-				'alias' => $field['alias']
-			];
-		}
-
-		$sort = $request['sort'];
-		$sortKey = $sort['key'] ?? '';
-
-		if($sortKey !== '' && isset($fieldDefs[$sortKey])) {
-			$dataQuery['order_by'] = [[
-				'element' => $fieldDefs[$sortKey],
-				'direction' => strtoupper($sort['dir'] ?? 'ASC') === 'DESC' ? 'DESC' : 'ASC'
-			]];
-		}
-		elseif(isset($this->config['order_by'])) {
-			$dataQuery['order_by'] = $this->config['order_by'];
-		}
-
-		if(isset($this->config['group_by'])) {
-			$dataQuery['group_by'] = $this->config['group_by'];
-		}
-
-		if(isset($this->config['having'])) {
-			$dataQuery['having'] = $this->config['having'];
-		}
-
-		$page = (int) $request['page'];
-		$pageSize = (int) $request['pageSize'];
-
-		$dataQuery['offset'] = ($page - 1) * $pageSize;
-		$dataQuery['limit'] = $pageSize;
-
-		return $dataQuery;
-	}
-
-	/**
 	 * @return array<int, array<string, mixed>>
 	 */
 	private function getFields(): array {
-		$fields = $this->config['fields'] ?? [];
+		return $this->queryBuilder->getFields($this->config ?? []);
+	}
 
-		return is_array($fields) ? $fields : [];
+	/**
+	 * @param array<string, mixed> $row
+	 */
+	private function buildRowKey(array $row, int $fallback): string {
+		$normalized = [];
+
+		foreach($row as $key => $value) {
+			$key = (string)$key;
+			if(str_starts_with($key, '__')) {
+				continue;
+			}
+
+			if(is_scalar($value) || $value === null) {
+				$normalized[$key] = $value;
+				continue;
+			}
+
+			$normalized[$key] = json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+		}
+
+		ksort($normalized);
+		$encoded = json_encode($normalized, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+
+		if(!is_string($encoded) || $encoded === '') {
+			$encoded = 'fallback-' . (string)$fallback;
+		}
+
+		return 'report-row-' . substr(sha1($encoded), 0, 20);
 	}
 
 	/**
 	 * @return array<string, mixed>
 	 */
-	private function getSearchFieldDefs(): array {
-		$fieldDefs = [];
-
-		foreach($this->getFields() as $field) {
-			if(!isset($field['alias'], $field['element'])) {
-				continue;
-			}
-
-			$config = isset($field['config']) && is_array($field['config']) ? $field['config'] : [];
-			if(array_key_exists('search', $config) && !$config['search']) {
-				continue;
-			}
-
-			$fieldDefs[(string) $field['alias']] = $field['element'];
-		}
-
-		return $fieldDefs;
+	private function getExportConfig(): array {
+		$export = $this->config['export'] ?? [];
+		return is_array($export) ? $export : [];
 	}
 
 	/**
-	 * @param array<int, array<string, mixed>> $fields
+	 * @param array<string, mixed> $exportConfig
+	 * @return array<int, string>
+	 */
+	private function getConfiguredExporterNames(array $exportConfig): array {
+		$names = [];
+
+		foreach(($exportConfig['exporters'] ?? []) as $name) {
+			$name = trim((string)$name);
+			if($name === '' || in_array($name, $names, true)) {
+				continue;
+			}
+			$names[] = $name;
+		}
+
+		return $names;
+	}
+
+	/**
 	 * @return array<string, mixed>
 	 */
-	private function buildFieldDefs(array $fields): array {
-		$fieldDefs = [];
+	private function buildExportOptions(): array {
+		$exportConfig = $this->getExportConfig();
+		$exporters = [];
 
-		foreach($fields as $field) {
-			if(!isset($field['alias'], $field['element'])) {
+		foreach($this->getConfiguredExporterNames($exportConfig) as $name) {
+			$exporter = $this->classmap->getInstanceByInterfaceName(IReportExporter::class, $name);
+			if(!$exporter instanceof IReportExporter) {
 				continue;
 			}
 
-			$fieldDefs[(string) $field['alias']] = $field['element'];
+			$exporters[] = [
+				'name' => $name,
+				'label' => $this->getExporterLabel($name)
+			];
 		}
 
-		return $fieldDefs;
+		if($exporters === []) {
+			return [];
+		}
+
+		$fields = [];
+		foreach($this->getConfiguredExportFields($exportConfig) as $field) {
+			$alias = (string)$field['alias'];
+			$fieldConfig = isset($field['config']) && is_array($field['config']) ? $field['config'] : [];
+
+			$fields[] = [
+				'key' => $alias,
+				'label' => (string)($fieldConfig['label'] ?? $alias)
+			];
+		}
+
+		if($fields === []) {
+			return [];
+		}
+
+		$defaultFields = $this->resolveExportFieldAliases($exportConfig['defaultFields'] ?? null, $exportConfig);
+
+		return [
+			'buttonLabel' => $this->t('export', 'Export'),
+			'exporters' => $exporters,
+			'defaultExporter' => (string)($exporters[0]['name'] ?? ''),
+			'scopes' => [
+				['key' => 'selected', 'label' => $this->t('export_scope_selected', 'Current selection')],
+				['key' => 'filtered', 'label' => $this->t('export_scope_filtered', 'Current filtering')],
+				['key' => 'all', 'label' => $this->t('export_scope_all', 'All data')],
+			],
+			'defaultScope' => 'filtered',
+			'fields' => $fields,
+			'defaultFields' => $defaultFields,
+			'labels' => [
+				'formatTab' => $this->t('export_tab_format', 'Format'),
+				'dataTab' => $this->t('export_tab_data', 'Data'),
+				'fieldsTab' => $this->t('export_tab_fields', 'Fields'),
+				'run' => $this->t('export_run', 'Export'),
+				'working' => $this->t('export_working', 'Exporting ...'),
+				'failed' => $this->t('export_failed', 'Export failed.'),
+				'noFields' => $this->t('export_no_fields', 'Select at least one field for export.'),
+				'noSelection' => $this->t('export_no_selection', 'Select at least one row for this export.'),
+			]
+		];
 	}
 
-	private function getFieldSortType(string $alias): string {
+	/**
+	 * @param mixed $requested
+	 * @param array<string, mixed> $exportConfig
+	 * @return array<int, string>
+	 */
+	private function resolveExportFieldAliases(mixed $requested, array $exportConfig): array {
+		$exportableFields = $this->getConfiguredExportFields($exportConfig);
+		$fieldDefs = $this->queryBuilder->buildFieldDefs($exportableFields);
+		$requestedFields = is_array($requested) ? $requested : [];
+
+		if($requestedFields === []) {
+			$requestedFields = is_array($exportConfig['defaultFields'] ?? null)
+				? $exportConfig['defaultFields']
+				: [];
+		}
+
+		return $this->queryBuilder->normalizeFieldAliases($requestedFields, $fieldDefs);
+	}
+
+	/**
+	 * Export fields are an explicit report-level whitelist.
+	 *
+	 * The configured names reference aliases from the normal report fields.
+	 * This keeps query definitions in one place while allowing an export to use
+	 * a hidden/raw field instead of the field rendered in the grid. Value
+	 * renderers are UI-only and are never applied to exported QueryResult data.
+	 *
+	 * @param array<string, mixed> $exportConfig
+	 * @return array<int, array<string, mixed>>
+	 */
+	private function getConfiguredExportFields(array $exportConfig): array {
+		$fieldsByAlias = [];
 		foreach($this->getFields() as $field) {
-			if((string) ($field['alias'] ?? '') !== $alias) {
+			$alias = trim((string)($field['alias'] ?? ''));
+			if($alias === '' || str_starts_with($alias, '__') || !isset($field['element'])) {
+				continue;
+			}
+			$fieldsByAlias[$alias] = $field;
+		}
+
+		$result = [];
+		$seen = [];
+		$configuredFields = is_array($exportConfig['fields'] ?? null) ? $exportConfig['fields'] : [];
+
+		foreach($configuredFields as $configuredField) {
+			if(!is_scalar($configuredField)) {
 				continue;
 			}
 
-			$config = isset($field['config']) && is_array($field['config']) ? $field['config'] : [];
+			$alias = trim((string)$configuredField);
+			if($alias === '' || isset($seen[$alias]) || !isset($fieldsByAlias[$alias])) {
+				continue;
+			}
 
-			return (string) ($config['type'] ?? 'string');
+			$seen[$alias] = true;
+			$result[] = $fieldsByAlias[$alias];
 		}
 
-		return 'string';
+		return $result;
 	}
 
+	/**
+	 * @param mixed $value
+	 * @return array<int, string>
+	 */
+	private function normalizeSelectedRowIds(mixed $value): array {
+		if(!is_array($value)) {
+			return [];
+		}
+
+		$result = [];
+		foreach($value as $rowId) {
+			if(!is_scalar($rowId)) {
+				continue;
+			}
+
+			$rowId = trim((string)$rowId);
+			if($rowId === '' || in_array($rowId, $result, true)) {
+				continue;
+			}
+			$result[] = $rowId;
+		}
+
+		return $result;
+	}
+
+	/**
+	 * @param array<int, string> $selectedRowIds
+	 */
+	private function filterSelectedResult(QueryResult $result, array $selectedRowIds): QueryResult {
+		$selected = array_fill_keys($selectedRowIds, true);
+		$rows = [];
+
+		foreach($result->rows as $index => $row) {
+			if(!is_array($row)) {
+				continue;
+			}
+
+			$rowKey = $this->buildRowKey($row, $index + 1);
+			if(isset($selected[$rowKey])) {
+				$rows[] = $row;
+			}
+		}
+
+		return new QueryResult(
+			$result->columns,
+			$rows,
+			$result->debugSql,
+			$result->sensitive,
+			$result->affectedRows,
+			$result->insertId
+		);
+	}
+
+	/**
+	 * @param array<int, string> $fieldAliases
+	 */
+	private function projectExportResult(QueryResult $result, array $fieldAliases): QueryResult {
+		$fieldsByAlias = [];
+		foreach($this->getFields() as $field) {
+			$alias = (string)($field['alias'] ?? '');
+			if($alias !== '') {
+				$fieldsByAlias[$alias] = $field;
+			}
+		}
+
+		$columnsByName = [];
+		foreach($result->columns as $column) {
+			if(!is_array($column)) {
+				continue;
+			}
+			$name = (string)($column['name'] ?? '');
+			if($name !== '') {
+				$columnsByName[$name] = $column;
+			}
+		}
+
+		$columns = [];
+		foreach($fieldAliases as $alias) {
+			$column = $columnsByName[$alias] ?? ['name' => $alias];
+			$fieldConfig = isset($fieldsByAlias[$alias]['config']) && is_array($fieldsByAlias[$alias]['config'])
+				? $fieldsByAlias[$alias]['config']
+				: [];
+			$column['name'] = $alias;
+			$column['label'] = (string)($fieldConfig['label'] ?? $alias);
+			$columns[] = $column;
+		}
+
+		$rows = [];
+		foreach($result->rows as $row) {
+			if(!is_array($row)) {
+				continue;
+			}
+
+			$projected = [];
+			foreach($fieldAliases as $alias) {
+				$projected[$alias] = $row[$alias] ?? null;
+			}
+			$rows[] = $projected;
+		}
+
+		return new QueryResult(
+			$columns,
+			$rows,
+			$result->debugSql,
+			$result->sensitive,
+			$result->affectedRows,
+			$result->insertId
+		);
+	}
+
+	private function getExporterLabel(string $name): string {
+		return match($name) {
+			'csvreportexporter' => 'CSV',
+			'excelhtmlreportexporter' => 'Excel HTML',
+			'xlsxreportexporter' => 'Excel',
+			'jsonreportexporter' => 'JSON',
+			'htmlpagereportexporter' => 'HTML',
+			'htmltablereportexporter' => 'HTML Table',
+			'datatablereportexporter' => 'Data Table',
+			'barchartreportexporter' => 'Bar Chart',
+			'piechartreportexporter' => 'Pie Chart',
+			default => $name,
+		};
+	}
+
+	private function buildExportFileName(IReportExporter $exporter): string {
+		$report = (string)($this->config['report'] ?? 'report');
+		$base = preg_replace('/[^A-Za-z0-9._-]+/', '_', $report) ?: 'report';
+		return $base . '.' . ltrim($exporter->getFileExtension(), '.');
+	}
 
 	private function loadTranslations(): void {
 		$this->view->setPath(DIR_PLUGIN . 'Vizion');
@@ -523,7 +641,7 @@ class ModularGridReportDisplay implements IDisplay {
 
 	private function t(string $key, string $fallback, mixed ...$values): string {
 		$text = trim((string)($this->translations[$key] ?? ''));
-		if ($text === '') {
+		if($text === '') {
 			$text = $fallback;
 		}
 
@@ -532,7 +650,6 @@ class ModularGridReportDisplay implements IDisplay {
 
 	public function getHelp(): string {
 		$this->loadTranslations();
-
-		return $this->t('help_modular_grid', 'Displays DataHawk query results as a ModularGrid table using the Vizion ReportDisplay system.');
+		return $this->t('help_modular_grid', 'Displays query results as a ModularGrid table using the Vizion ReportDisplay system.');
 	}
 }

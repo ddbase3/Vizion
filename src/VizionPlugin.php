@@ -35,6 +35,7 @@ use Vizion\Api\IReportChartService;
 use Vizion\Filter\ReportFilterService;
 use Vizion\Renderer\ReportCellRendererService;
 use Vizion\Chart\ReportChartService;
+use Vizion\Service\ModularGridReportQueryBuilder;
 
 class VizionPlugin implements IPlugin, ICheck {
 
@@ -71,6 +72,11 @@ class VizionPlugin implements IPlugin, ICheck {
 				IContainer::SHARED | IContainer::NOOVERWRITE)
 
 			->set(
+				ModularGridReportQueryBuilder::class,
+				fn($c) => new ModularGridReportQueryBuilder($c->get(IReportFilterService::class)),
+				IContainer::SHARED | IContainer::NOOVERWRITE)
+
+			->set(
 				IReportChartService::class,
 				fn($c) => new ReportChartService(
 					$c->get(IClassMap::class),
@@ -92,7 +98,6 @@ class VizionPlugin implements IPlugin, ICheck {
 
 	public function checkDependencies() {
 		return [
-			'datahawkplugin_installed' => $this->container->get('datahawkplugin') ? 'Ok' : 'datahawkplugin not installed',
 			'clientstackplugin_installed' => $this->container->get('clientstackplugin') ? 'Ok' : 'clientstackplugin not installed',
 			'resourcefoundationplugin_installed' => $this->container->get('resourcefoundationplugin') ? 'Ok' : 'resourcefoundationplugin not installed'
 		];

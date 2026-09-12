@@ -18,7 +18,8 @@ Vizion provides a growing collection of modular UI components for data visualiza
 * 🔄 Dynamic Ajax support through `getOutput('json')`
 * 📐 Clean MVC rendering via `IMvcView` integration
 * 🔎 Sorting, paging, filtering, column visibility and layout control for tables
-* 🧠 Query backend powered by [DataHawk](https://github.com/ddbase3/DataHawk)
+* 🧠 Query execution through the neutral ResourceFoundation `IQueryService` contract
+* 📤 Discoverable report exporters through ResourceFoundation `IReportExporter`
 
 ## Example: Minimal Config
 
@@ -88,12 +89,17 @@ echo $display->getOutput('html');
 * Feature plugins contribute their own report scope through `IReportConfigDefinitionProvider` and do not replace the central Vizion service.
 * Unqualified report ids work while unique. Duplicate ids across scopes are addressed as `scope:report`.
 * `IDisplay` implementations (e.g. `DataTableReportDisplay`) render based on config.
-* Data is fetched lazily inside each Display class using `IQueryService`.
+* Data is fetched lazily inside each Display class using `IQueryService`. DataHawk is a common implementation, but Vizion does not depend on DataHawk classes.
+* ModularGrid paging and export share `ModularGridReportQueryBuilder`, so filter/search/sort query construction has one implementation.
+* Exporter implementations are resolved through `IClassMap` by their exact `getName()` value. See `docs/report-export.md`.
 
 ## Roadmap
 
 * ✔️ Working: jQueryDataTable (static and Ajax)
-* 🔜 Coming: Chart.js (Bar, Pie, Line), Custom Formatters, Export, Grouping, Subtotals
+* ✔️ Working: configured CSV, native XLSX and JSON downloads for ModularGrid reports
+* ✔️ Working: legacy Excel-compatible HTML export remains available separately as `excelhtmlreportexporter`
+* ✔️ Working: reusable HTML table/page, DataTable, bar chart and pie chart result exporters
+* 🔜 Coming: additional Chart.js report displays, Custom Formatters, Grouping, Subtotals
 * 🎯 Vision: A visual query + dashboard builder with embeddable components
 
 ## License

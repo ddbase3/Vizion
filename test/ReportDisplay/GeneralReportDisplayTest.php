@@ -47,7 +47,7 @@ final class GeneralReportDisplayTest extends TestCase {
 		$display = new GeneralReportDisplay($req, $classmap, $configProvider, $this->createTranslation());
 		$display->setData('r1');
 
-		$out = $display->getOutput('json');
+		$out = $display->getOutput('json', true);
 
 		$this->assertSame('INNER_OUTPUT', $out);
 
@@ -59,6 +59,7 @@ final class GeneralReportDisplayTest extends TestCase {
 		$this->assertSame('datatablereportdisplay', $resolvedConfig['display'] ?? null);
 
 		$this->assertSame('json', DataTableReportDisplayStub::$lastInstance->receivedOut);
+		$this->assertTrue(DataTableReportDisplayStub::$lastInstance->receivedFinal);
 
 		// ClassMapStub logs both: getInstanceByInterfaceName + instantiate
 		$methods = array_values(array_map(fn($c) => $c['method'], $classmap->calls));
@@ -142,6 +143,7 @@ final class DataTableReportDisplayStub implements IDisplay {
 
 	public ?array $receivedData = null;
 	public ?string $receivedOut = null;
+	public bool $receivedFinal = false;
 
 	public function __construct() {
 		self::$lastInstance = $this;
@@ -162,6 +164,7 @@ final class DataTableReportDisplayStub implements IDisplay {
 
 	public function getOutput(string $out = 'html', bool $final = false): string {
 		$this->receivedOut = (string)$out;
+		$this->receivedFinal = $final;
 		return self::$nextOutput;
 	}
 
