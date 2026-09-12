@@ -24,15 +24,18 @@ use Base3\Api\IContainer;
 use Base3\Api\IPlugin;
 use Base3\Api\IRequest;
 use Base3\Translation\Api\ITranslation;
+use ResourceFoundation\Api\IQueryService;
 use ResourceFoundation\Api\IReportingScopeRegistry;
 use Vizion\Api\IReportConfigProvider;
 use Vizion\Api\IReportDisplay;
 use Vizion\Service\CompositeReportConfigProvider;
 use Vizion\ReportDisplay\GeneralReportDisplay;
 use Vizion\Api\IReportFilterService;
+use Vizion\Api\IReportTreeFilterService;
 use Vizion\Api\IReportCellRendererService;
 use Vizion\Api\IReportChartService;
 use Vizion\Filter\ReportFilterService;
+use Vizion\TreeFilter\ReportTreeFilterService;
 use Vizion\Renderer\ReportCellRendererService;
 use Vizion\Chart\ReportChartService;
 use Vizion\Service\ModularGridReportQueryBuilder;
@@ -67,13 +70,21 @@ class VizionPlugin implements IPlugin, ICheck {
 				IContainer::SHARED | IContainer::NOOVERWRITE)
 
 			->set(
+				IReportTreeFilterService::class,
+				fn($c) => new ReportTreeFilterService($c->get(IQueryService::class)),
+				IContainer::SHARED | IContainer::NOOVERWRITE)
+
+			->set(
 				IReportCellRendererService::class,
 				fn($c) => new ReportCellRendererService($c->get(IClassMap::class)),
 				IContainer::SHARED | IContainer::NOOVERWRITE)
 
 			->set(
 				ModularGridReportQueryBuilder::class,
-				fn($c) => new ModularGridReportQueryBuilder($c->get(IReportFilterService::class)),
+				fn($c) => new ModularGridReportQueryBuilder(
+					$c->get(IReportFilterService::class),
+					$c->get(IReportTreeFilterService::class)
+				),
 				IContainer::SHARED | IContainer::NOOVERWRITE)
 
 			->set(

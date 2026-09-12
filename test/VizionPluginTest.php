@@ -8,6 +8,7 @@ use Base3\Api\IContainer;
 use Vizion\Api\IReportConfigProvider;
 use Vizion\Api\IReportDisplay;
 use Vizion\Api\IReportFilterService;
+use Vizion\Api\IReportTreeFilterService;
 use Vizion\Api\IReportCellRendererService;
 use Vizion\Api\IReportChartService;
 use Vizion\Service\ModularGridReportQueryBuilder;
@@ -58,6 +59,15 @@ final class VizionPluginTest extends TestCase {
 		$this->assertRegistration(
 			$calls,
 			IReportFilterService::class,
+			IContainer::SHARED | IContainer::NOOVERWRITE,
+			function($definition): void {
+				$this->assertIsCallable($definition);
+			}
+		);
+
+		$this->assertRegistration(
+			$calls,
+			IReportTreeFilterService::class,
 			IContainer::SHARED | IContainer::NOOVERWRITE,
 			function($definition): void {
 				$this->assertIsCallable($definition);

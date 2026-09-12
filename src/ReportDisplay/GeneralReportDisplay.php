@@ -52,7 +52,7 @@ class GeneralReportDisplay implements IReportDisplay {
 		}
 		catch(Throwable $exception) {
 			return match(strtolower($out)) {
-				'json' => $this->renderJsonError($exception, $final),
+				'json', 'tree' => $this->renderJsonError($exception, $final),
 				'export' => $this->renderExportError($exception, $final),
 				default => $this->renderHtmlError($exception),
 			};

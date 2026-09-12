@@ -17,6 +17,7 @@
 namespace Vizion\Service;
 
 use Vizion\Api\IReportFilterService;
+use Vizion\Api\IReportTreeFilterService;
 
 /**
  * Builds the structured queries used by ModularGrid reports.
@@ -27,7 +28,8 @@ use Vizion\Api\IReportFilterService;
 final class ModularGridReportQueryBuilder {
 
 	public function __construct(
-		private readonly IReportFilterService $reportFilterService
+		private readonly IReportFilterService $reportFilterService,
+		private readonly IReportTreeFilterService $reportTreeFilterService
 	) {}
 
 	/**
@@ -52,6 +54,7 @@ final class ModularGridReportQueryBuilder {
 		$fields = $this->getFields($config);
 		$sort = $this->normalizeSort($payload['sort'] ?? null, $config, $fields);
 		$filters = $this->reportFilterService->normalizeFilters($payload['filters'] ?? null, $fields);
+		$treeFilters = $this->reportTreeFilterService->normalizeTreeFilters($payload['treeFilters'] ?? null, $config);
 
 		return [
 			'page' => $page,
@@ -59,6 +62,7 @@ final class ModularGridReportQueryBuilder {
 			'search' => $search,
 			'sort' => $sort,
 			'filters' => $filters,
+			'treeFilters' => $treeFilters,
 		];
 	}
 
@@ -105,6 +109,13 @@ final class ModularGridReportQueryBuilder {
 
 		if($filterWhere !== null) {
 			$whereParams[] = $filterWhere;
+		}
+
+		$treeFilters = is_array($request['treeFilters'] ?? null) ? $request['treeFilters'] : [];
+		$treeFilterWhere = $this->reportTreeFilterService->buildFilterWhere($treeFilters, $config);
+
+		if($treeFilterWhere !== null) {
+			$whereParams[] = $treeFilterWhere;
 		}
 
 		if(count($whereParams) === 1) {

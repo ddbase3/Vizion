@@ -55,6 +55,14 @@
 		row-gap: 0;
 	}
 
+	.vizion-modulargrid-panel--tree-filters {
+		overflow-x: auto;
+	}
+
+	.vizion-modulargrid-panel--tree-filters > .mg-tree-filters {
+		flex: 1 1 auto;
+	}
+
 	.vizion-modulargrid-panel > * {
 		flex: 0 0 auto;
 	}
@@ -218,7 +226,8 @@
 		RowDetailPlugin,
 		SearchPlugin,
 		SelectionPlugin,
-		SessionStoragePlugin
+		SessionStoragePlugin,
+		TreeFiltersPlugin
 	} from '<?php echo htmlspecialchars((string) $this->_['modulargridJsUrl'], ENT_QUOTES); ?>';
 
 	const exportPluginModule = await import(new URL(<?php echo $json((string) $this->_['modulargridExportPluginJsUrl']); ?>, document.baseURI).href);
@@ -228,12 +237,14 @@
 	const cellRenderersModule = await import(new URL(<?php echo $json((string) $this->_['cellRenderersJsUrl']); ?>, document.baseURI).href);
 	const ENDPOINT_URL = <?php echo $json((string) $this->_['ajaxUrl']); ?>;
 	const EXPORT_URL = <?php echo $json((string) $this->_['exportUrl']); ?>;
+	const TREE_ENDPOINT_URL = <?php echo $json((string) $this->_['treeUrl']); ?>;
 	const EXPORT_OPTIONS = <?php echo $json($this->_['exportOptions']); ?>;
 	const GRID_SELECTOR = <?php echo $json('#' . $gridId); ?>;
 	const LOG_SELECTOR = <?php echo $json('#' . $logId); ?>;
 	const REPORT_COLUMNS = <?php echo $json($this->_['columns']); ?>;
 	const FILTER_FIELDS = <?php echo $json($this->_['filterFields']); ?>;
 	const FILTER_INITIAL_VALUES = <?php echo $json($this->_['filterInitialValues']); ?>;
+	const TREE_FILTER_FIELDS = <?php echo $json($this->_['treeFilters']); ?>;
 	const REPORT_CONFIG = <?php echo $json($this->_['config']); ?>;
 	const TRANSLATIONS = <?php echo $json($translations); ?>;
 	const MODULAR_GRID_STRINGS = <?php echo $json($modularGridStrings); ?>;
@@ -269,24 +280,38 @@
 		return (hash >>> 0).toString(36);
 	}
 
-	function createFilterStorageSignature(fields, initialValues) {
+	function createFilterStorageSignature(fields, initialValues, treeDefinitions) {
 		return createShortHash(JSON.stringify({
 			fields: fields || [],
-			initialValues: initialValues || {}
+			initialValues: initialValues || {},
+			treeDefinitions: treeDefinitions || []
 		}));
 	}
 
-	const FILTER_STORAGE_SIGNATURE = createFilterStorageSignature(FILTER_FIELDS, FILTER_INITIAL_VALUES);
+	const FILTER_STORAGE_SIGNATURE = createFilterStorageSignature(FILTER_FIELDS, FILTER_INITIAL_VALUES, REPORT_CONFIG?.treeFilters || []);
+	const STATE_SECTIONS = ['query', 'filters', 'filterVisibility', 'columns', 'selection', 'detailView'];
+	if (TREE_FILTER_FIELDS.length > 0) {
+		STATE_SECTIONS.push('treeFilters');
+	}
+
+	const layoutChildren = [
+		{ type: 'zone', key: 'topLine1', className: 'vizion-modulargrid-panel vizion-modulargrid-panel--main' },
+		{ type: 'zone', key: 'topLine2', className: 'vizion-modulargrid-panel vizion-modulargrid-panel--filters' }
+	];
+
+	if (TREE_FILTER_FIELDS.length > 0) {
+		layoutChildren.push({ type: 'zone', key: 'treeFilters', className: 'vizion-modulargrid-panel vizion-modulargrid-panel--tree-filters' });
+	}
+
+	layoutChildren.push(
+		{ type: 'view', key: 'main', className: 'vizion-modulargrid-main' },
+		{ type: 'zone', key: 'statusZone', className: 'vizion-modulargrid-panel vizion-modulargrid-panel--status' }
+	);
 
 	const layout = {
 		type: 'stack',
 		className: 'mg-layout-root',
-		children: [
-			{ type: 'zone', key: 'topLine1', className: 'vizion-modulargrid-panel vizion-modulargrid-panel--main' },
-			{ type: 'zone', key: 'topLine2', className: 'vizion-modulargrid-panel vizion-modulargrid-panel--filters' },
-			{ type: 'view', key: 'main', className: 'vizion-modulargrid-main' },
-			{ type: 'zone', key: 'statusZone', className: 'vizion-modulargrid-panel vizion-modulargrid-panel--status' }
-		]
+		children: layoutChildren
 	};
 
 	function setLog(message) {
@@ -436,6 +461,7 @@
 			const state = grid ? grid.getState() : {};
 			const query = state.query || {};
 			const filters = reportFilterTools.buildFilterPayload(state.filters || {}, FILTER_FIELDS);
+			const treeFilters = state.treeFilters || {};
 			const sortKey = request.sortKey || query.sortKey || defaultSortKey;
 			const sortDirection = request.sortDirection || query.sortDirection || defaultSortDirection;
 
@@ -446,9 +472,30 @@
 				search: request.search ?? query.search ?? '',
 				sort: sortKey ? [{ key: sortKey, dir: sortDirection, type: sortTypes[sortKey] || 'string' }] : [],
 				filters,
+				treeFilters,
 				group: []
 			};
 		}
+
+		async function loadTreeFilterNodes(field) {
+			const response = await fetch(TREE_ENDPOINT_URL, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ key: field.key })
+			});
+			const payload = await response.json();
+
+			if (!response.ok || payload?.ok !== true) {
+				throw new Error(payload?.error || tr('tree_load_failed', 'Tree could not be loaded.'));
+			}
+
+			return Array.isArray(payload.nodes) ? payload.nodes : [];
+		}
+
+		const treeFilterFields = TREE_FILTER_FIELDS.map((field) => ({
+			...field,
+			loadNodes: loadTreeFilterNodes
+		}));
 
 		function getExportFileName(response) {
 			const disposition = response.headers.get('Content-Disposition') || '';
@@ -511,7 +558,7 @@
 			dataMode: 'server',
 			server: {
 				searchDebounceMs: 260,
-				watchStateKeys: ['query', 'filters']
+				watchStateKeys: TREE_FILTER_FIELDS.length > 0 ? ['query', 'filters', 'treeFilters'] : ['query', 'filters']
 			},
 			features: { paging: false },
 			pageSize: BATCH_SIZE,
@@ -519,6 +566,7 @@
 			plugins: [
 				SearchPlugin,
 				CompactFiltersPlugin,
+				...(TREE_FILTER_FIELDS.length > 0 ? [TreeFiltersPlugin] : []),
 				HeaderMenuPlugin,
 				InfoPlugin,
 				SelectionPlugin,
@@ -545,6 +593,12 @@
 					clearLabel: tr('clear_filters', 'Clear filters'),
 					fields: reportFilterTools.buildGridFilterFields(FILTER_FIELDS),
 					initialValues: FILTER_INITIAL_VALUES
+				},
+				treeFilters: {
+					zone: 'treeFilters',
+					order: 10,
+					stateKey: 'treeFilters',
+					fields: treeFilterFields
 				},
 				headerMenu: { showSortActions: true, showClearSortAction: true, showHideColumnAction: true },
 				selection: { rowIdKey: '__row_key' },
@@ -575,8 +629,8 @@
 					},
 					items: [{ key: 'copy-clipboard', label: tr('copy_to_clipboard', 'Copy to clipboard'), onClick(context) { copyReportRow(context.row); } }]
 				},
-				reset: { zone: 'topLine1', order: 35, label: tr('reset', 'Reset'), sections: ['query', 'filters', 'filterVisibility', 'columns', 'selection', 'detailView'] },
-				sessionStorage: { key: 'vizion-modulargrid-' + (REPORT_CONFIG?.report || 'report') + '-' + FILTER_STORAGE_SIGNATURE, sections: ['query', 'filters', 'filterVisibility', 'columns', 'selection', 'detailView'] },
+				reset: { zone: 'topLine1', order: 35, label: tr('reset', 'Reset'), sections: STATE_SECTIONS },
+				sessionStorage: { key: 'vizion-modulargrid-' + (REPORT_CONFIG?.report || 'report') + '-' + FILTER_STORAGE_SIGNATURE, sections: STATE_SECTIONS },
 				info: { zone: 'statusZone', order: 10, displayMode: 'loaded' },
 				rowDetail: { rowIdKey: '__row_key', clearOnDataReload: true, detailRenderer(row) { return createDetailContent(row); } },
 				infiniteScroll: { threshold: 180, pageSize: BATCH_SIZE, containerSelector: '.mg-table-scroll' }

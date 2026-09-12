@@ -30,6 +30,7 @@ use ResourceFoundation\Api\IReportExporter;
 use ResourceFoundation\Dto\QueryResult;
 use Vizion\Api\IReportCellRendererService;
 use Vizion\Api\IReportFilterService;
+use Vizion\Api\IReportTreeFilterService;
 use Vizion\Service\ModularGridReportQueryBuilder;
 
 class ModularGridReportDisplay implements IDisplay {
@@ -50,6 +51,7 @@ class ModularGridReportDisplay implements IDisplay {
 		private readonly IAssetResolver $assetResolver,
 		private readonly IClassMap $classmap,
 		private readonly IReportFilterService $reportFilterService,
+		private readonly IReportTreeFilterService $reportTreeFilterService,
 		private readonly IReportCellRendererService $reportCellRendererService,
 		private readonly ModularGridReportQueryBuilder $queryBuilder
 	) {}
@@ -74,11 +76,46 @@ class ModularGridReportDisplay implements IDisplay {
 			return $this->getJsonOutput($final);
 		}
 
+		if($out === 'tree') {
+			return $this->getTreeOutput($final);
+		}
+
 		if($out === 'export') {
 			return $this->getExportOutput($final);
 		}
 
 		return $this->getHtmlOutput();
+	}
+
+	private function getTreeOutput(bool $final = false): string {
+		try {
+			$payload = $this->request->getJsonBody();
+			$key = is_scalar($payload['key'] ?? null) ? trim((string)$payload['key']) : '';
+			if($key === '') {
+				throw new \RuntimeException('Missing tree filter key.');
+			}
+
+			$response = [
+				'ok' => true,
+				'nodes' => $this->reportTreeFilterService->loadTree($this->config ?? [], $key)
+			];
+		}
+		catch(\Throwable $exception) {
+			$response = [
+				'ok' => false,
+				'error' => $exception->getMessage(),
+				'nodes' => []
+			];
+		}
+
+		if($final && !headers_sent()) {
+			header('Content-Type: application/json; charset=utf-8');
+		}
+
+		return (string)json_encode(
+			$response,
+			JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
+		);
 	}
 
 	private function getJsonOutput(bool $final = false): string {
@@ -162,6 +199,7 @@ class ModularGridReportDisplay implements IDisplay {
 			'appliedSearch' => $request['search'],
 			'appliedSort' => [$request['sort']],
 			'appliedFilters' => $request['filters'],
+			'appliedTreeFilters' => $request['treeFilters'],
 			'appliedGroup' => [],
 		];
 	}
@@ -257,6 +295,7 @@ class ModularGridReportDisplay implements IDisplay {
 		$columns = $this->reportCellRendererService->stripInternalGridColumnMetadata($columns);
 		$filterFields = $this->reportFilterService->buildGridFilterFields($fields);
 		$filterInitialValues = $this->reportFilterService->buildInitialFilterValues($fields);
+		$treeFilters = $this->reportTreeFilterService->buildGridTreeFilters($this->config ?? []);
 		$report = $this->config['report'] ?? '';
 		$ajaxUrl = $this->linkTargetService->getLink(
 			[
@@ -277,12 +316,24 @@ class ModularGridReportDisplay implements IDisplay {
 			]
 		);
 
+		$treeUrl = $this->linkTargetService->getLink(
+			[
+				'name' => 'generalreportdisplay',
+				'out' => 'tree'
+			],
+			[
+				'report' => $report
+			]
+		);
+
 		$this->view->assign('ajaxUrl', $ajaxUrl);
 		$this->view->assign('exportUrl', $exportUrl);
+		$this->view->assign('treeUrl', $treeUrl);
 		$this->view->assign('exportOptions', $this->buildExportOptions());
 		$this->view->assign('columns', $columns);
 		$this->view->assign('filterFields', $filterFields);
 		$this->view->assign('filterInitialValues', $filterInitialValues);
+		$this->view->assign('treeFilters', $treeFilters);
 		$this->view->assign('config', $this->config ?? []);
 		$this->view->assign('modulargridCssUrl', $this->assetResolver->resolve('plugin/ClientStack/assets/modulargrid/styles/modulargrid.css'));
 		$this->view->assign('modulargridJsUrl', $this->assetResolver->resolve('plugin/ClientStack/assets/modulargrid/index.js'));
