@@ -91,12 +91,12 @@ echo $display->getOutput('html');
 * `IDisplay` implementations (e.g. `DataTableReportDisplay`) render based on config.
 * Data is fetched lazily inside each Display class using `IQueryService`. DataHawk is a common implementation, but Vizion does not depend on DataHawk classes.
 * ModularGrid paging and export share `ModularGridReportQueryBuilder`, so filter/search/sort query construction has one implementation.
-* Exporter implementations are resolved through `IClassMap` by their exact `getName()` value. See `docs/report-export.md`.
+* Exporter implementations are resolved through `IClassMap` by their exact `getName()` value. Platform-specific exporters can therefore be contributed by host plugins without a direct Vizion dependency. See `docs/report-export.md`.
 
 ## Roadmap
 
 * ✔️ Working: jQueryDataTable (static and Ajax)
-* ✔️ Working: configured CSV, native XLSX and JSON downloads for ModularGrid reports
+* ✔️ Working: configured CSV, native XLSX, PDF and JSON downloads for ModularGrid reports
 * ✔️ Working: legacy Excel-compatible HTML export remains available separately as `excelhtmlreportexporter`
 * ✔️ Working: reusable HTML table/page, DataTable, bar chart and pie chart result exporters
 * 🔜 Coming: additional Chart.js report displays, Custom Formatters, Grouping, Subtotals

@@ -22,24 +22,23 @@ ResourceFoundation\Dto\QueryResult
 ResourceFoundation\Api\IReportExporter
         |
         v
-CSV / Excel HTML / XLSX / JSON / HTML UI exporters
+CSV / Excel HTML / JSON / host-specific XLSX or PDF / HTML UI exporters
 ```
 
 DataHawk is one possible `IQueryService` implementation. It remains usable without Vizion.
 
-`IReportExporter` lives in ResourceFoundation because query results and result transformation are shared contracts. Concrete exporters live in Vizion because they belong to reporting/output concerns.
+`IReportExporter` lives in ResourceFoundation because query results and result transformation are shared contracts. Concrete exporters live in the plugin that owns the output representation or its runtime dependency. Vizion provides platform-neutral exporters; host integrations can contribute additional exporters without creating a dependency from Vizion to the host plugin.
 
 There is no exporter factory. Exporters are discoverable BASE3 components and are resolved through `IClassMap` by their exact `getName()` value.
 
 ## Exporter names
 
-Vizion currently provides these exporters with stable technical names:
+Vizion currently provides these platform-neutral exporters with stable technical names:
 
 | Exporter | `getName()` | Typical use |
 | --- | --- | --- |
 | `CsvReportExporter` | `csvreportexporter` | CSV download |
 | `ExcelHtmlReportExporter` | `excelhtmlreportexporter` | Legacy Excel-compatible HTML download (`.xls`) |
-| `XlsxReportExporter` | `xlsxreportexporter` | Native Office Open XML workbook (`.xlsx`) |
 | `JsonReportExporter` | `jsonreportexporter` | JSON download/integration |
 | `HtmlTableReportExporter` | `htmltablereportexporter` | Embeddable HTML table |
 | `HtmlPageReportExporter` | `htmlpagereportexporter` | Standalone HTML page |
@@ -47,11 +46,16 @@ Vizion currently provides these exporters with stable technical names:
 | `BarChartReportExporter` | `barchartreportexporter` | ClientStack Chart.js bar chart output |
 | `PieChartReportExporter` | `piechartreportexporter` | ClientStack Chart.js pie chart output |
 
-The UI download reports currently configure only CSV, native XLSX and JSON. The legacy Excel HTML exporter and the HTML/UI exporters remain available through `IClassMap` for consumers that explicitly configure or resolve them.
+The ILIAS integration contributes these additional exporters from `IliasReporting`:
 
-`ExcelHtmlReportExporter` keeps its original behavior and identity. It emits Excel-compatible HTML with the `.xls` extension. Native OOXML output is a separate component, `XlsxReportExporter`, with the technical name `xlsxreportexporter`. Existing exporter names are never repurposed for another format.
+| Exporter | `getName()` | Runtime | Typical use |
+| --- | --- | --- | --- |
+| `XlsxReportExporter` | `xlsxreportexporter` | ILIAS PhpSpreadsheet | Native Office Open XML workbook (`.xlsx`) |
+| `PdfReportExporter` | `pdfreportexporter` | Dompdf provided by PhpStack | Formatted PDF table report |
 
-PDF is intentionally not implemented until a PDF rendering engine has been selected.
+The configured ILIAS download reports expose CSV, native XLSX, PDF and JSON. The legacy Excel HTML exporter and the HTML/UI exporters remain available through `IClassMap` for consumers that explicitly configure or resolve them.
+
+`ExcelHtmlReportExporter` keeps its original behavior and identity. It emits Excel-compatible HTML with the `.xls` extension. Native OOXML output remains a separate component, `XlsxReportExporter`, with the technical name `xlsxreportexporter`. Existing exporter names are never repurposed for another format.
 
 ## Report configuration
 
@@ -63,6 +67,7 @@ A ModularGrid report becomes exportable by adding an `export` block:
     "exporters": [
       "csvreportexporter",
       "xlsxreportexporter",
+      "pdfreportexporter",
       "jsonreportexporter"
     ],
     "fields": [
@@ -170,11 +175,11 @@ Vizion validates the configured exporter, scope and field aliases before running
 
 ## Adding another report exporter
 
-1. Add an `IReportExporter` implementation under Vizion `src/Export/`.
+1. Add an `IReportExporter` implementation to the plugin that owns the output representation or runtime dependency.
 2. Give it a stable lowercase `getName()` value.
 3. Transform only `QueryResult`. Do not execute queries inside the exporter.
-4. Add exporter tests.
+4. Add exporter tests in the owning plugin.
 5. Add the exact `getName()` value to report definitions that should expose it.
 6. Add a UI label in `ModularGridReportDisplay::getExporterLabel()` only when a friendlier display label is desired.
 
-No change to DataHawk is required.
+No change to DataHawk is required. Vizion discovers the exporter through `IClassMap`; it does not need a direct dependency on the plugin that implements it.

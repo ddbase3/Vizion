@@ -14,14 +14,12 @@ use Vizion\Export\HtmlPageReportExporter;
 use Vizion\Export\HtmlTableReportExporter;
 use Vizion\Export\JsonReportExporter;
 use Vizion\Export\PieChartReportExporter;
-use Vizion\Export\XlsxReportExporter;
 
 final class ReportExportersTest extends TestCase {
 
 	public function testExporterNamesStayStable(): void {
 		$this->assertSame('csvreportexporter', CsvReportExporter::getName());
 		$this->assertSame('excelhtmlreportexporter', ExcelHtmlReportExporter::getName());
-		$this->assertSame('xlsxreportexporter', XlsxReportExporter::getName());
 		$this->assertSame('jsonreportexporter', JsonReportExporter::getName());
 		$this->assertSame('htmltablereportexporter', HtmlTableReportExporter::getName());
 		$this->assertSame('htmlpagereportexporter', HtmlPageReportExporter::getName());
@@ -35,7 +33,6 @@ final class ReportExportersTest extends TestCase {
 		$exporters = [
 			new CsvReportExporter(),
 			new ExcelHtmlReportExporter(),
-			new XlsxReportExporter(),
 			new JsonReportExporter(),
 		];
 
@@ -59,30 +56,6 @@ final class ReportExportersTest extends TestCase {
 		$this->assertSame('csv', $exporter->getFileExtension());
 	}
 
-	public function testExcelExporterCreatesNativeXlsxWorkbook(): void {
-		$exporter = new ExcelHtmlReportExporter();
-		$exporter->setResult($this->makeResult());
-
-		$content = $exporter->toString();
-		$file = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'vizion_export_' . bin2hex(random_bytes(5)) . '.xlsx';
-
-		try {
-			file_put_contents($file, $content);
-
-			$this->assertStringStartsWith('PK', $content);
-			$this->assertSame('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', $exporter->getMimeType());
-			$this->assertSame('xlsx', $exporter->getFileExtension());
-
-			$archive = new \PharData($file);
-			$this->assertTrue(isset($archive['[Content_Types].xml']));
-			$this->assertTrue(isset($archive['xl/workbook.xml']));
-			$this->assertTrue(isset($archive['xl/worksheets/sheet1.xml']));
-		}
-		finally {
-			@unlink($file);
-		}
-	}
-
 	public function testExcelHtmlExporterKeepsLegacyHtmlWorkbookFormat(): void {
 		$exporter = new ExcelHtmlReportExporter();
 		$exporter->setResult($this->makeResult());
@@ -92,17 +65,6 @@ final class ReportExportersTest extends TestCase {
 		$this->assertStringContainsString('<html xmlns:o="urn:schemas-microsoft-com:office:office"', $content);
 		$this->assertSame('application/vnd.ms-excel; charset=utf-8', $exporter->getMimeType());
 		$this->assertSame('xls', $exporter->getFileExtension());
-	}
-
-	public function testXlsxExporterUsesNativeOfficeOpenXmlFormat(): void {
-		$exporter = new XlsxReportExporter();
-		$exporter->setResult($this->makeResult());
-
-		$content = $exporter->toString();
-
-		$this->assertStringStartsWith("PK", $content);
-		$this->assertSame('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', $exporter->getMimeType());
-		$this->assertSame('xlsx', $exporter->getFileExtension());
 	}
 
 	public function testJsonContainsResultMetadata(): void {

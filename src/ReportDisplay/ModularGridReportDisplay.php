@@ -615,6 +615,7 @@ class ModularGridReportDisplay implements IDisplay {
 			'csvreportexporter' => 'CSV',
 			'excelhtmlreportexporter' => 'Excel HTML',
 			'xlsxreportexporter' => 'Excel',
+			'pdfreportexporter' => 'PDF',
 			'jsonreportexporter' => 'JSON',
 			'htmlpagereportexporter' => 'HTML',
 			'htmltablereportexporter' => 'HTML Table',
