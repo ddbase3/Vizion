@@ -128,7 +128,7 @@ final class MatrixReportDisplay implements IDisplay {
 		$fields = $this->getFields();
 		$fieldDefs = $this->buildFieldDefs($fields);
 		$where = $this->buildWhere($request['search'], $request['filters'], $fieldDefs);
-		$total = $this->loadTotal($where);
+		$total = $this->loadTotal($where, $fields);
 		$page = (int) $request['page'];
 		$pageSize = (int) $request['pageSize'];
 		$offset = max(0, ($page - 1) * $pageSize);
@@ -145,6 +145,14 @@ final class MatrixReportDisplay implements IDisplay {
 
 		if($where !== null) {
 			$query['where'] = $where;
+		}
+
+		if(isset($this->getConfig()['group_by']) && is_array($this->getConfig()['group_by'])) {
+			$query['group_by'] = $this->getConfig()['group_by'];
+		}
+
+		if(isset($this->getConfig()['having']) && is_array($this->getConfig()['having'])) {
+			$query['having'] = $this->getConfig()['having'];
 		}
 
 		$sort = $request['sort'];
@@ -312,17 +320,44 @@ final class MatrixReportDisplay implements IDisplay {
 		return count($where) === 1 ? $where[0] : ['type' => 'op', 'operator' => 'AND', 'params' => $where];
 	}
 
-	/** @param array<string,mixed>|null $where */
-	private function loadTotal(?array $where): int {
+	/** @param array<string,mixed>|null $where @param array<int,array<string,mixed>> $fields */
+	private function loadTotal(?array $where, array $fields): int {
+		$config = $this->getConfig();
+		$grouped = (isset($config['group_by']) && is_array($config['group_by']))
+			|| (isset($config['having']) && is_array($config['having']));
+
 		$query = [
 			'type' => 'select',
-			'schema' => (string) ($this->getConfig()['schema'] ?? ''),
-			'table' => (string) ($this->getConfig()['table'] ?? ''),
-			'fields' => [[
+			'schema' => (string) ($config['schema'] ?? ''),
+			'table' => (string) ($config['table'] ?? '')
+		];
+
+		if($grouped) {
+			$query['fields'] = $this->buildQueryFields($fields);
+			$query['fields'][] = [
+				'element' => [
+					'type' => 'windowfn',
+					'function' => 'COUNT',
+					'params' => ['*'],
+					'over' => []
+				],
+				'alias' => '__total__'
+			];
+
+			if(isset($config['group_by']) && is_array($config['group_by'])) {
+				$query['group_by'] = $config['group_by'];
+			}
+
+			if(isset($config['having']) && is_array($config['having'])) {
+				$query['having'] = $config['having'];
+			}
+		}
+		else {
+			$query['fields'] = [[
 				'element' => ['type' => 'fn', 'function' => 'COUNT', 'params' => [['type' => 'fld', 'field' => '*']]],
 				'alias' => '__total__'
-			]]
-		];
+			]];
+		}
 
 		if($where !== null) {
 			$query['where'] = $where;
