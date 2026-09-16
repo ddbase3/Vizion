@@ -107,3 +107,8 @@ echo $display->getOutput('html');
 
 GPL-3.0 License
 
+
+## Documentation
+
+- [Frequently Asked Questions](docs/faq.md)
+- [Privacy and data processing](PRIVACY.md)
