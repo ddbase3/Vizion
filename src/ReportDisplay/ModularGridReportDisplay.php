@@ -30,6 +30,7 @@ use ResourceFoundation\Api\IReportExporter;
 use ResourceFoundation\Dto\QueryResult;
 use Vizion\Api\IReportCellRendererService;
 use Vizion\Api\IReportFilterService;
+use Vizion\Api\IReportDataService;
 use Vizion\Api\IReportTreeFilterService;
 use Vizion\Service\ModularGridReportQueryBuilder;
 
@@ -52,6 +53,7 @@ class ModularGridReportDisplay implements IDisplay {
 		private readonly IClassMap $classmap,
 		private readonly IReportFilterService $reportFilterService,
 		private readonly IReportTreeFilterService $reportTreeFilterService,
+		private readonly IReportDataService $reportDataService,
 		private readonly IReportCellRendererService $reportCellRendererService,
 		private readonly ModularGridReportQueryBuilder $queryBuilder
 	) {}
@@ -97,7 +99,7 @@ class ModularGridReportDisplay implements IDisplay {
 
 			$response = [
 				'ok' => true,
-				'nodes' => $this->reportTreeFilterService->loadTree($this->config ?? [], $key)
+				'nodes' => $this->reportDataService->loadTreeConfig($this->config ?? [], $key)
 			];
 		}
 		catch(\Throwable $exception) {
@@ -156,52 +158,12 @@ class ModularGridReportDisplay implements IDisplay {
 			$payload = [];
 		}
 
-		$config = $this->config ?? [];
-		$request = $this->queryBuilder->normalizeRequest($payload, $config);
-		$fields = $this->getFields();
-		$baseQuery = $this->queryBuilder->buildBaseQuery($config, $request);
-		$total = $this->loadTotal($baseQuery);
-		$pageSize = $request['pageSize'];
-		$page = $request['page'];
-		$totalPages = $pageSize > 0 ? (int)ceil($total / $pageSize) : 0;
+		$response = $this->reportDataService->executeConfig($this->config ?? [], $payload);
+		$rows = is_array($response['data'] ?? null) ? $response['data'] : [];
+		$response['data'] = $this->reportCellRendererService->renderGridRows($rows, $this->getFields());
+		unset($response['report'], $response['fields']);
 
-		$dataQuery = $this->queryBuilder->buildDataQuery($config, $baseQuery, $request);
-		$result = $this->reportqueryservice->executeQuery($dataQuery);
-
-		if($this->logSql) {
-			$this->logger->log('Vizion', 'MODULARGRID RES | ' . $result->debugSql);
-		}
-
-		$rows = [];
-		$offset = (($page - 1) * $pageSize);
-
-		foreach(($result->rows ?? []) as $index => $row) {
-			if(!is_array($row)) {
-				continue;
-			}
-
-			$row['__row_key'] = $this->buildRowKey($row, $offset + $index + 1);
-			$rows[] = $row;
-		}
-
-		$rows = $this->reportCellRendererService->renderGridRows($rows, $fields);
-
-		return [
-			'mode' => 'page',
-			'data' => $rows,
-			'groups' => [],
-			'page' => $page,
-			'pageSize' => $pageSize,
-			'total' => $total,
-			'totalPages' => $totalPages,
-			'hasMore' => ($offset + $pageSize) < $total,
-			'nextCursor' => null,
-			'appliedSearch' => $request['search'],
-			'appliedSort' => [$request['sort']],
-			'appliedFilters' => $request['filters'],
-			'appliedTreeFilters' => $request['treeFilters'],
-			'appliedGroup' => [],
-		];
+		return $response;
 	}
 
 	private function getExportOutput(bool $final): string {
@@ -345,21 +307,6 @@ class ModularGridReportDisplay implements IDisplay {
 		$this->view->assign('translations', $this->translations);
 
 		return $this->view->loadTemplate();
-	}
-
-	/**
-	 * @param array<string, mixed> $baseQuery
-	 */
-	private function loadTotal(array $baseQuery): int {
-		$countQuery = $this->queryBuilder->buildCountQuery($this->config ?? [], $baseQuery);
-		$result = $this->reportqueryservice->executeQuery($countQuery);
-		$total = (int)($result->rows[0]['__total__'] ?? 0);
-
-		if($this->logSql) {
-			$this->logger->log('Vizion', 'MODULARGRID CNT | ' . $result->debugSql);
-		}
-
-		return $total;
 	}
 
 	/**

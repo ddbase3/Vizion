@@ -24,6 +24,7 @@ use Base3\Api\IContainer;
 use Base3\Api\IPlugin;
 use Base3\Api\IRequest;
 use Base3\Translation\Api\ITranslation;
+use Base3\Logger\Api\ILogger;
 use ResourceFoundation\Api\IQueryService;
 use ResourceFoundation\Api\IReportingScopeRegistry;
 use Vizion\Api\IReportConfigProvider;
@@ -31,6 +32,7 @@ use Vizion\Api\IReportDisplay;
 use Vizion\Service\CompositeReportConfigProvider;
 use Vizion\ReportDisplay\GeneralReportDisplay;
 use Vizion\Api\IReportFilterService;
+use Vizion\Api\IReportDataService;
 use Vizion\Api\IReportTreeFilterService;
 use Vizion\Api\IReportCellRendererService;
 use Vizion\Api\IReportChartService;
@@ -39,6 +41,7 @@ use Vizion\TreeFilter\ReportTreeFilterService;
 use Vizion\Renderer\ReportCellRendererService;
 use Vizion\Chart\ReportChartService;
 use Vizion\Service\ModularGridReportQueryBuilder;
+use Vizion\Service\ReportDataService;
 
 class VizionPlugin implements IPlugin, ICheck {
 
@@ -84,6 +87,20 @@ class VizionPlugin implements IPlugin, ICheck {
 				fn($c) => new ModularGridReportQueryBuilder(
 					$c->get(IReportFilterService::class),
 					$c->get(IReportTreeFilterService::class)
+				),
+				IContainer::SHARED | IContainer::NOOVERWRITE)
+
+			->set(
+				IReportDataService::class,
+				fn($c) => new ReportDataService(
+					$c->get(IClassMap::class),
+					$c->get(IReportingScopeRegistry::class),
+					$c->get(IReportConfigProvider::class),
+					$c->get(IQueryService::class),
+					$c->get(IReportFilterService::class),
+					$c->get(IReportTreeFilterService::class),
+					$c->get(ModularGridReportQueryBuilder::class),
+					$c->get(ILogger::class)
 				),
 				IContainer::SHARED | IContainer::NOOVERWRITE)
 
