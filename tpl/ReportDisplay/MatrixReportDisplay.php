@@ -273,38 +273,6 @@
 		text-align: center;
 	}
 
-	.vizion-matrix-report-status {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		max-width: 100%;
-		padding: 2px 7px;
-		border: 1px solid #d6d6d6;
-		border-radius: 999px;
-		background: #fafafa;
-		color: #444;
-		font-size: 11px;
-		line-height: 1.3;
-		white-space: nowrap;
-	}
-
-	.vizion-matrix-report-status-completed {
-		border-color: #97c99f;
-		background: #eff8f0;
-		color: #245d2a;
-	}
-
-	.vizion-matrix-report-status-in-progress {
-		border-color: #d5bd75;
-		background: #fff7df;
-		color: #6d5200;
-	}
-
-	.vizion-matrix-report-status-failed {
-		border-color: #dca0a0;
-		background: #fff0f0;
-		color: #7b1f1f;
-	}
 
 	.vizion-matrix-report-cell-sub {
 		margin-top: 2px;
@@ -423,7 +391,7 @@
 		logElement.innerHTML = '<strong>' + tr('last_action', 'Last action:') + '</strong> ' + message;
 	}
 
-	function getText(value, placeholder = '—') {
+	function getText(value, placeholder = '-') {
 		if (value === null || value === undefined || value === '') return placeholder;
 		return String(value);
 	}
@@ -563,21 +531,15 @@
 		return wrapper;
 	}
 
-	function getStatusClass(status) {
-		const normalized = String(status || '').toUpperCase().replace(/_/g, '-');
-		if (normalized === 'COMPLETED') return 'completed';
-		if (normalized === 'IN-PROGRESS') return 'in-progress';
-		if (normalized === 'FAILED') return 'failed';
-		return 'not-attempted';
-	}
-
-	function renderStatusCell(value, status = '') {
+	function renderStatusCell(value) {
 		const wrapper = document.createElement('div');
-		const pill = document.createElement('span');
-		const effectiveStatus = status || (value && typeof value === 'object' ? value.status : '');
-		pill.className = 'vizion-matrix-report-status vizion-matrix-report-status-' + getStatusClass(effectiveStatus);
-		pill.textContent = getText(value && typeof value === 'object' ? value.label : value);
-		wrapper.appendChild(pill);
+		const renderedHtml = value && typeof value === 'object' ? getText(value.html, '') : '';
+
+		if (renderedHtml !== '') {
+			wrapper.appendChild(reportCellTools.renderCell(renderedHtml, {}, { html: true }));
+		} else {
+			wrapper.appendChild(document.createTextNode(getText(value && typeof value === 'object' ? value.label : value)));
+		}
 
 		if (value && typeof value === 'object') {
 			const sub = [];
@@ -622,7 +584,7 @@
 				columns.forEach((column) => {
 					const td = document.createElement('td');
 					const value = row[column.key];
-					if (column.type === 'status') td.appendChild(renderStatusCell(value, row[column.statusKey] || ''));
+					if (column.type === 'status') td.appendChild(renderStatusCell(value));
 					else td.textContent = getText(value);
 					tr.appendChild(td);
 				});
@@ -752,11 +714,12 @@
 					items: [{ key: 'copy-clipboard', label: tr('copy_to_clipboard', 'Copy to clipboard'), onClick(context) { copyMatrixRow(context.row); } }]
 				},
 				reset: { zone: 'topLine1', order: 40, label: tr('reset', 'Reset'), sections: ['query', 'filters', 'filterVisibility', 'columns', 'selection', 'detailView'] },
-				sessionStorage: { key: 'vizion-matrix-report-' + (REPORT_CONFIG?.report || 'report') + '-' + FILTER_STORAGE_SIGNATURE, sections: ['query', 'filters', 'filterVisibility', 'columns', 'selection', 'detailView'] },
+				sessionStorage: { key: 'vizion-matrix-report-' + (REPORT_CONFIG?.report || 'report') + '-' + FILTER_STORAGE_SIGNATURE, sections: ['query', 'filters', 'filterVisibility', 'columns', 'selection'] },
 				info: { zone: 'statusZone', order: 10, displayMode: 'loaded' },
 				rowDetail: {
 					rowIdKey: '__row_key',
 					clearOnDataReload: true,
+					cache: false,
 					asyncDetail: {
 						load(context) { return loadRemoteDetail(context); },
 						renderLoading(context) { return createDetailLoadingPlaceholder(context); },

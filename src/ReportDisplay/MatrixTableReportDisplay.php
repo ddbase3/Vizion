@@ -6,6 +6,7 @@ use Base3\Api\IDisplay;
 use Base3\Translation\Api\ITranslation;
 use ResourceFoundation\Api\IQueryService;
 use Throwable;
+use Vizion\Api\IReportCellRendererService;
 
 final class MatrixTableReportDisplay implements IDisplay {
 
@@ -20,7 +21,8 @@ final class MatrixTableReportDisplay implements IDisplay {
 
 	public function __construct(
 		private readonly IQueryService $queryService,
-		private readonly ITranslation $translation
+		private readonly ITranslation $translation,
+		private readonly IReportCellRendererService $reportCellRendererService
 	) {}
 
 	public static function getName(): string {
@@ -219,9 +221,25 @@ final class MatrixTableReportDisplay implements IDisplay {
 			}
 			$key = (string) ($column['key'] ?? '');
 			$field = (string) ($column['field'] ?? $key);
-			if($key !== '') {
-				$result[$key] = $row[$field] ?? '';
+			if($key === '') {
+				continue;
 			}
+
+			$value = $row[$field] ?? '';
+			$rendererConfig = $column['valueRenderer'] ?? null;
+
+			if(is_array($rendererConfig)) {
+				$statusKey = (string) ($column['statusKey'] ?? $field);
+				$status = (string) ($row[$statusKey] ?? $value);
+				$result[$key] = [
+					'label' => $this->translateStatus((string) $value),
+					'status' => $status,
+					'html' => $this->renderConfiguredValue($status, $row, $rendererConfig)
+				];
+				continue;
+			}
+
+			$result[$key] = $value;
 		}
 
 		return $result;
@@ -279,13 +297,35 @@ final class MatrixTableReportDisplay implements IDisplay {
 		$defaultStatus = (string) ($cellConfig['defaultStatus'] ?? '');
 		$status = $cell !== null ? (string) ($cell[$statusField] ?? $defaultStatus) : $defaultStatus;
 		$label = $cell !== null ? (string) ($cell[$labelField] ?? $status) : $status;
-
-		return [
+		$result = [
 			'label' => $this->translateStatus($label),
 			'status' => $status,
 			'percentage' => $cell !== null && $percentageField !== '' ? $this->formatPercentage($cell[$percentageField] ?? null) : '',
 			'mark' => $cell !== null && $markField !== '' ? (string) ($cell[$markField] ?? '') : ''
 		];
+		$rendererConfig = $cellConfig['valueRenderer'] ?? null;
+
+		if(is_array($rendererConfig)) {
+			$result['html'] = $this->renderConfiguredValue($status, $cell ?? [], $rendererConfig);
+		}
+
+		return $result;
+	}
+
+	/** @param array<string,mixed> $row @param array<string,mixed> $rendererConfig */
+	private function renderConfiguredValue(mixed $value, array $row, array $rendererConfig): string {
+		$alias = '__matrix_rendered_value';
+		$renderRow = $row;
+		$renderRow[$alias] = $value;
+		$renderedRows = $this->reportCellRendererService->renderGridRows([$renderRow], [[
+			'alias' => $alias,
+			'config' => [
+				'valueRenderer' => $rendererConfig
+			]
+		]]);
+		$rendered = $renderedRows[0][$alias] ?? '';
+
+		return is_scalar($rendered) ? (string) $rendered : '';
 	}
 
 	/** @param array<string,mixed> $headline */
