@@ -1,0 +1,21 @@
+{
+	"manifestVersion": 1,
+	"name": "Vizion",
+	"namespace": "Vizion",
+	"version": "4.7.0",
+	"description": "Reporting and data visualization for BASE3 with interactive tables, grids, charts and exporters.",
+	"license": "GPL-3.0-or-later",
+	"maintainers": [
+		{
+			"name": "Daniel Dahme",
+			"url": "https://www.base3.de",
+			"email": "info@base3.de"
+		}
+	],
+	"repository": "https://github.com/ddbase3/Vizion",
+	"dependencies": {
+		"Base3Framework": ">=4.10.0",
+		"ResourceFoundation": ">=4.5.0",
+		"ClientStack": ">=4.23.0"
+	}
+}
