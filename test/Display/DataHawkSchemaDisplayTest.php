@@ -8,10 +8,6 @@ use Base3\Api\IMvcView;
 use Base3\Api\IAssetResolver;
 use ResourceFoundation\Api\IQuerySchemaProvider;
 
-if (!defined('DIR_PLUGIN')) {
-	define('DIR_PLUGIN', '/plugins/');
-}
-
 final class DataHawkSchemaDisplayTest extends TestCase {
 
 	public function testGetNameReturnsExpectedValue(): void {
@@ -58,7 +54,7 @@ final class DataHawkSchemaDisplayTest extends TestCase {
 		$out = $display->getOutput('html');
 		$this->assertSame('HTML', $out);
 
-		$this->assertSame(DIR_PLUGIN . 'Vizion', $viewState['path']);
+		$this->assertSame(dirname(__DIR__, 2), $viewState['path']);
 		$this->assertSame('Display/DataHawkSchemaDisplay.php', $viewState['template']);
 
 		$this->assertArrayHasKey('data', $viewState['assigned']);

@@ -249,7 +249,7 @@ class ModularGridReportDisplay implements IDisplay {
 	}
 
 	private function getHtmlOutput(): string {
-		$this->view->setPath(DIR_PLUGIN . 'Vizion');
+		$this->view->setPath(dirname(__DIR__, 2));
 		$this->view->setTemplate('ReportDisplay/ModularGridReportDisplay.php');
 
 		$fields = $this->getFields();
@@ -631,7 +631,7 @@ class ModularGridReportDisplay implements IDisplay {
 	}
 
 	private function loadTranslations(): void {
-		$this->view->setPath(DIR_PLUGIN . 'Vizion');
+		$this->view->setPath(dirname(__DIR__, 2));
 		$this->view->loadBricks('Display');
 
 		$translations = $this->view->getBricks('vizion_report_display');

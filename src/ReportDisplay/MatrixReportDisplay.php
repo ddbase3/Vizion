@@ -63,7 +63,7 @@ final class MatrixReportDisplay implements IDisplay {
 		$config = $this->getConfig();
 		$report = $this->getReportName();
 
-		$this->view->setPath(DIR_PLUGIN . 'Vizion');
+		$this->view->setPath(dirname(__DIR__, 2));
 		$this->view->setTemplate('ReportDisplay/MatrixReportDisplay.php');
 		$columns = $this->reportCellRendererService->buildGridColumns($this->getFields());
 		$columns = $this->reportCellRendererService->stripInternalGridColumnMetadata($columns);
@@ -451,7 +451,7 @@ final class MatrixReportDisplay implements IDisplay {
 
 
 	private function loadTranslations(): void {
-		$this->view->setPath(DIR_PLUGIN . 'Vizion');
+		$this->view->setPath(dirname(__DIR__, 2));
 		$this->view->loadBricks('Display');
 
 		$translations = $this->view->getBricks('vizion_report_display');

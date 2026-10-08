@@ -11,10 +11,6 @@ use Base3\Logger\Api\ILogger;
 use ResourceFoundation\Api\IQueryService;
 use ResourceFoundation\Dto\QueryResult;
 
-if (!defined('DIR_PLUGIN')) {
-	define('DIR_PLUGIN', '/plugins/');
-}
-
 final class DataTableReportDisplayTest extends TestCase {
 
 	public function testGetNameReturnsExpectedValue(): void {
@@ -300,7 +296,7 @@ final class DataTableReportDisplayTest extends TestCase {
 
 		$this->assertSame('TEMPLATE OUTPUT', $html);
 
-		$this->assertSame(DIR_PLUGIN . 'Vizion', $viewState['path']);
+		$this->assertSame(dirname(__DIR__, 2), $viewState['path']);
 		$this->assertSame('ReportDisplay/DataTableReportDisplay.php', $viewState['template']);
 
 		$this->assertSame(

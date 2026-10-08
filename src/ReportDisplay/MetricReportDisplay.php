@@ -69,7 +69,7 @@ final class MetricReportDisplay implements IDisplay {
 			);
 		}
 
-		$this->view->setPath(DIR_PLUGIN . 'Vizion');
+		$this->view->setPath(dirname(__DIR__, 2));
 		$this->view->setTemplate('ReportDisplay/MetricReportDisplay.php');
 		$this->view->assign('config', $this->getConfig());
 		$this->view->assign('metrics', $payload['metrics']);
@@ -307,7 +307,7 @@ final class MetricReportDisplay implements IDisplay {
 
 
 	private function loadTranslations(): void {
-		$this->view->setPath(DIR_PLUGIN . 'Vizion');
+		$this->view->setPath(dirname(__DIR__, 2));
 		$this->view->loadBricks('Display');
 
 		$translations = $this->view->getBricks('vizion_report_display');

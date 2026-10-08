@@ -18,12 +18,12 @@
 
 namespace Vizion\Service;
 
-use Base3\Api\IClassMap;
+use Base3\Api\IModuleRegistry;
 use Vizion\Api\IReportConfigProvider;
 
 class FileReportConfigProvider implements IReportConfigProvider {
 
-	public function __construct(private readonly IClassMap $classmap) {}
+	public function __construct(private readonly IModuleRegistry $moduleRegistry) {}
 
 	public function getConfig(string $report): array {
 		$report = trim($report);
@@ -37,17 +37,14 @@ class FileReportConfigProvider implements IReportConfigProvider {
 
 		$files = [];
 
-		foreach($this->classmap->getPlugins() as $plugin) {
-			if(!is_scalar($plugin)) {
+		foreach($this->moduleRegistry->getModuleNames() as $moduleName) {
+			$moduleRoot = $this->moduleRegistry->getModulePath($moduleName);
+			if($moduleRoot === null) {
 				continue;
 			}
 
-			$pluginName = trim((string) $plugin);
-			if($pluginName === '') {
-				continue;
-			}
-
-			$file = DIR_PLUGIN . $pluginName . '/local/Vizion/' . $report . '.json';
+			$file = $moduleRoot . DIRECTORY_SEPARATOR . 'local' . DIRECTORY_SEPARATOR . 'Vizion'
+				. DIRECTORY_SEPARATOR . $report . '.json';
 			if(is_file($file)) {
 				$files[] = $file;
 			}

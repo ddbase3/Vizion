@@ -90,7 +90,7 @@ class DataHawkSchemaDisplay implements IDisplay {
 			}
 		}
 
-		$this->view->setPath(DIR_PLUGIN . 'Vizion');
+		$this->view->setPath(dirname(__DIR__, 2));
 		$this->view->setTemplate('Display/DataHawkSchemaDisplay.php');
 		$this->view->assign('scopeData', $scopeData);
 		$this->view->assign('scopeOptions', $scopeOptions);
@@ -148,7 +148,7 @@ class DataHawkSchemaDisplay implements IDisplay {
 	}
 
 	private function loadTranslations(): void {
-		$this->view->setPath(DIR_PLUGIN . 'Vizion');
+		$this->view->setPath(dirname(__DIR__, 2));
 		$this->view->loadBricks('Display');
 
 		$translations = $this->view->getBricks('vizion_report_display');
