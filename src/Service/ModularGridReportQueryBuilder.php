@@ -256,6 +256,131 @@ final class ModularGridReportQueryBuilder {
 	}
 
 	/**
+	 * Returns the configured stable identity fields for one report row.
+	 *
+	 * `rowKey` is a list of existing field aliases, not SQL column names.
+	 * The combination must uniquely identify each result row, including
+	 * grouped rows. Without an explicit rowKey, existing reports retain
+	 * their historical content-derived selection identifiers.
+	 *
+	 * @param array<string, mixed> $config Report definition
+	 * @return array<int, string> Unique identity aliases in configured order
+	 * @throws \InvalidArgumentException On malformed or unknown identity fields
+	 */
+	public function getRowKeyAliases(array $config): array {
+		$definition = $config['rowKey'] ?? null;
+		if($definition === null) {
+			return [];
+		}
+		if(!is_array($definition) || $definition === []) {
+			throw new \InvalidArgumentException('Report rowKey must name at least one configured field.');
+		}
+		$fieldDefs = $this->buildFieldDefs($this->getFields($config));
+		$aliases = [];
+		foreach($definition as $alias) {
+			if(!is_string($alias) || $alias === '' || !array_key_exists($alias, $fieldDefs) || in_array($alias, $aliases, true)) {
+				throw new \InvalidArgumentException('Report rowKey contains an invalid or duplicate field alias.');
+			}
+			$aliases[] = $alias;
+		}
+		return $aliases;
+	}
+
+	/**
+	 * Encodes one result row's stable identity without including presentation data.
+	 * The result is opaque to browser code but can be decoded for an exact SQL
+	 * predicate. Identity values must be scalar or NULL.
+	 *
+	 * @param array<string, mixed> $config Report definition
+	 * @param array<string, mixed> $row Query result including identity aliases
+	 * @return string Reversible, URL-safe selection identifier
+	 * @throws \InvalidArgumentException On a missing or invalid identity value
+	 */
+	public function buildRowKey(array $config, array $row): string {
+		$aliases = $this->getRowKeyAliases($config);
+		if($aliases === []) {
+			throw new \InvalidArgumentException('Report has no configured row identity.');
+		}
+		$values = [];
+		foreach($aliases as $alias) {
+			if(!array_key_exists($alias, $row) || (!is_scalar($row[$alias]) && $row[$alias] !== null)) {
+				throw new \InvalidArgumentException('Report row is missing a valid identity value.');
+			}
+			$values[] = $row[$alias];
+		}
+		return 'report-key-' . rtrim(strtr(base64_encode(json_encode($values, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE)), '+/', '-_'), '=');
+	}
+
+	/**
+	 * Builds a selection predicate against configured identity field expressions.
+	 * Only keys emitted for the current report shape are accepted. The calling
+	 * code combines this predicate with the report's original WHERE conditions
+	 * and its mandatory query-service access restrictions.
+	 *
+	 * @param array<string, mixed> $config Report definition
+	 * @param array<int, string> $selectedRowIds Encoded row identities
+	 * @return array<string, mixed> DataHawk-neutral structured WHERE expression
+	 * @throws \InvalidArgumentException On an invalid key or empty selection
+	 */
+	public function buildSelectionWhere(array $config, array $selectedRowIds): array {
+		$aliases = $this->getRowKeyAliases($config);
+		if($aliases === [] || $selectedRowIds === [] || count($selectedRowIds) > 5000) {
+			throw new \InvalidArgumentException('Selected-row export needs a configured row identity and at most 5000 keys.');
+		}
+		$fieldDefs = $this->buildFieldDefs($this->getFields($config));
+		$selections = [];
+		foreach($selectedRowIds as $key) {
+			if(!is_string($key) || !str_starts_with($key, 'report-key-') || strlen($key) > 2048) {
+				throw new \InvalidArgumentException('Invalid selected row identifier.');
+			}
+			$encoded = substr($key, strlen('report-key-'));
+			$decoded = base64_decode(strtr($encoded, '-_', '+/'), true);
+			if($decoded === false || rtrim(strtr(base64_encode($decoded), '+/', '-_'), '=') !== $encoded) {
+				throw new \InvalidArgumentException('Invalid selected row identifier.');
+			}
+			try {
+				$values = json_decode($decoded, true, 512, JSON_THROW_ON_ERROR);
+			} catch(\JsonException) {
+				throw new \InvalidArgumentException('Invalid selected row identifier.');
+			}
+			if(!is_array($values) || !array_is_list($values) || count($values) !== count($aliases)) {
+				throw new \InvalidArgumentException('Selected row identity does not match the configured report.');
+			}
+			$parts = [];
+			foreach($aliases as $index => $alias) {
+				$value = $values[$index];
+				if(!is_scalar($value) && $value !== null) {
+					throw new \InvalidArgumentException('Invalid selected row identity value.');
+				}
+				$parts[] = [
+					'type' => 'op',
+					'operator' => $value === null ? 'IS NULL' : '=',
+					'params' => $value === null ? [$fieldDefs[$alias]] : [$fieldDefs[$alias], $value]
+				];
+			}
+			$selections[] = count($parts) === 1 ? $parts[0] : [
+				'type' => 'op', 'operator' => 'AND', 'params' => $parts
+			];
+		}
+		if(count($aliases) === 1 && count($selections) > 1) {
+			$values = [];
+			foreach($selections as $selection) {
+				if($selection['operator'] !== '=') {
+					$values = [];
+					break;
+				}
+				$values[] = $selection['params'][1];
+			}
+			if($values !== []) {
+				return ['type' => 'op', 'operator' => 'IN', 'params' => array_merge([$fieldDefs[$aliases[0]]], $values)];
+			}
+		}
+		return count($selections) === 1 ? $selections[0] : [
+			'type' => 'op', 'operator' => 'OR', 'params' => $selections
+		];
+	}
+
+	/**
 	 * @param array<string, mixed> $config
 	 * @return array<int, array<string, mixed>>
 	 */

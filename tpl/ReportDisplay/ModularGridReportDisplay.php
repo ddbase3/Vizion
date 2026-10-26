@@ -459,6 +459,13 @@
 
 		function buildReportRequest(request = {}) {
 			const state = grid ? grid.getState() : {};
+			const columnStates = state.columns || [];
+			const configuredVisibility = Array.isArray(columnStates)
+				? new Map(columnStates.filter((column) => column && column.key).map((column) => [column.key, column.visible !== false]))
+				: new Map(Object.entries(columnStates).map(([key, column]) => [key, column !== false && column?.visible !== false]));
+			const visibleFields = REPORT_COLUMNS.filter((column) =>
+				(configuredVisibility.has(column.key) ? configuredVisibility.get(column.key) : column.visible !== false)
+			).map((column) => column.key);
 			const query = state.query || {};
 			const filters = reportFilterTools.buildFilterPayload(state.filters || {}, FILTER_FIELDS);
 			const treeFilters = state.treeFilters || {};
@@ -473,6 +480,7 @@
 				sort: sortKey ? [{ key: sortKey, dir: sortDirection, type: sortTypes[sortKey] || 'string' }] : [],
 				filters,
 				treeFilters,
+				fields: visibleFields,
 				group: []
 			};
 		}
@@ -558,7 +566,7 @@
 			dataMode: 'server',
 			server: {
 				searchDebounceMs: 260,
-				watchStateKeys: TREE_FILTER_FIELDS.length > 0 ? ['query', 'filters', 'treeFilters'] : ['query', 'filters']
+				watchStateKeys: TREE_FILTER_FIELDS.length > 0 ? ['query', 'filters', 'treeFilters', 'columns'] : ['query', 'filters', 'columns']
 			},
 			features: { paging: false },
 			pageSize: BATCH_SIZE,

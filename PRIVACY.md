@@ -138,9 +138,7 @@ Because debug SQL may contain values derived from report conditions or user filt
 
 ## Row keys
 
-For interactive selection and exports, Vizion creates row keys by normalizing the row values, hashing the JSON representation with SHA-1, and exposing a shortened hash prefixed with `report-row-`.
-
-The key is an identifier derived from row content, not a substitute for authorization. Selected-row export always re-runs the server query and matches the resulting server-side keys.
+Configured ModularGrid reports build stable row identifiers from explicit `rowKey` field aliases. These values are encoded as URL-safe JSON, not encrypted or authorized by themselves. Existing unconfigured report definitions retain their original content-derived SHA-1 selection identifiers for compatibility. The selected-row export always re-runs the query through the active query service; keyed reports use identity filtering in SQL instead of fetching all candidate rows.
 
 ## Tree filters
 
@@ -265,3 +263,11 @@ Before exposing reports containing personal or confidential data, verify at leas
 - whether report error messages are suitable for the audience
 - which browser state is stored in `sessionStorage`
 - how downloaded exports are handled by organizational policy
+
+## Stable row identity and selected-row query filtering
+
+ModularGrid reports may now define stable `rowKey` aliases. The JSON response includes an opaque, URL-safe encoding of the configured identity values rather than a content hash for those reports. This value is not encrypted, does not itself authorize access, and may contain identifiers that can be decoded by the recipient. Report authors should choose the smallest necessary non-secret identity fields.
+
+For configured row identities, the export endpoint decodes selected IDs, validates their shape and bounded number, and builds a structured identity `WHERE` condition. The active `IQueryService` continues enforcing the report's own constraints. The server no longer loads all report rows to match selected keys for those reports; legacy reports without configured row identities keep their previous behavior.
+
+The browser now transmits a list of visible grid fields to reduce transferred data and unnecessary joins. Hidden identity and rendering dependency fields are still loaded server-side where needed. Column selection, filter state and selected-row identifiers can contain private context and remain under the existing browser/session and query-service privacy boundaries.

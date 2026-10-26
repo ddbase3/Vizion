@@ -160,7 +160,11 @@ class ModularGridReportDisplay implements IDisplay {
 
 		$response = $this->reportDataService->executeConfig($this->config ?? [], $payload);
 		$rows = is_array($response['data'] ?? null) ? $response['data'] : [];
-		$response['data'] = $this->reportCellRendererService->renderGridRows($rows, $this->getFields());
+		$requestedAliases = is_array($response['fields'] ?? null) ? $response['fields'] : [];
+		$renderFields = array_values(array_filter($this->getFields(),
+			fn(array $field): bool => in_array((string)($field['alias'] ?? ''), $requestedAliases, true)
+		));
+		$response['data'] = $this->reportCellRendererService->renderGridRows($rows, $renderFields);
 		unset($response['report'], $response['fields']);
 
 		return $response;
@@ -211,9 +215,24 @@ class ModularGridReportDisplay implements IDisplay {
 
 				$allRequest = $this->queryBuilder->normalizeRequest([], $config);
 				$selectionBaseQuery = $this->queryBuilder->buildBaseQuery($config, $allRequest);
-				$query = $this->queryBuilder->buildDataQuery($config, $selectionBaseQuery, $allRequest, null, false);
-				$result = $this->reportqueryservice->executeQuery($query);
-				$result = $this->filterSelectedResult($result, $selectedRowIds);
+				if($this->queryBuilder->getRowKeyAliases($config) !== []) {
+					try {
+						$selectionWhere = $this->queryBuilder->buildSelectionWhere($config, $selectedRowIds);
+					} catch(\InvalidArgumentException) {
+						throw new \RuntimeException($this->t('export_invalid_selection', 'The selected row identifiers are invalid.'));
+					}
+					$selectionBaseQuery['where'] = isset($selectionBaseQuery['where'])
+						? ['type' => 'op', 'operator' => 'AND', 'params' => [$selectionBaseQuery['where'], $selectionWhere]]
+						: $selectionWhere;
+					$query = $this->queryBuilder->buildDataQuery($config, $selectionBaseQuery, $allRequest, $fieldAliases, false);
+					$result = $this->reportqueryservice->executeQuery($query);
+				}
+				else {
+					// The previous selection contract remains unchanged for older reports.
+					$query = $this->queryBuilder->buildDataQuery($config, $selectionBaseQuery, $allRequest, null, false);
+					$result = $this->reportqueryservice->executeQuery($query);
+					$result = $this->filterSelectedResult($result, $selectedRowIds);
+				}
 				$result = $this->projectExportResult($result, $fieldAliases);
 			}
 			else {

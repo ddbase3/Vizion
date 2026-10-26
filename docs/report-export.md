@@ -178,3 +178,17 @@ Vizion validates the configured exporter, scope and field aliases before running
 6. Add a UI label in `ModularGridReportDisplay::getExporterLabel()` only when a friendlier display label is desired.
 
 No change to DataHawk is required.
+
+## Stable identity for selected-row exports
+
+Declare a top-level `rowKey` array whose aliases identify one logical result row. For example:
+
+```json
+{ "rowKey": ["ref_id", "usr_id"] }
+```
+
+`rowKey` refers to existing entries in `fields`, even when those fields are initially hidden. It is not a SQL fragment and must stay unique for each report result row. The server encodes identity values in each `__row_key`, validates the selected keys, and adds a structured `WHERE` predicate using the exact configured expressions. Selected export requests still use their normal reporting access constraints. This eliminates the all-rows download for keyed reports.
+
+For backwards compatibility, reports that have not yet been assigned `rowKey` keep their original content-derived selection behavior. New and migrated report definitions should always configure a stable identity. Grouped reports should use grouping keys, not a user-selected aggregate or a presentation label.
+
+Browser column state supplies the requested grid field projection. Hiding a field without needing it for sort, search, filters, row identity, or renderers avoids a projection join. The `export.fields` whitelist remains independent of visible grid columns.

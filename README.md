@@ -116,3 +116,11 @@ GPL-3.0 License
 ## Count projection for optional report fields
 
 The modular-grid count query now projects a constant row marker and the existing window count, rather than every configured display column. Expressions referenced through a structured HAVING field alias remain projected. DISTINCT queries retain their complete projected tuple to preserve existing distinctness semantics. Grouping, HAVING predicates and the active query's WHERE filters remain unchanged. This avoids triggering optional lookup joins merely because an attribute was configured as a report column. Data and export queries keep their existing field-selection contracts.
+
+## Stable ModularGrid selection and sparse field queries
+
+A ModularGrid definition may declare `"rowKey": ["id"]` or a composite identity such as `"rowKey": ["order_id", "item_id"]`. Each entry must be an existing normal `fields[].alias`, together identifying each result row (including grouped rows). Hidden identity fields stay in the query even when they are not displayed. A stable selection identifier is encoded from just these values, not from all visible cells.
+
+Selected-row export adds the decoded identity conditions directly to the report's structured WHERE expression before `IQueryService::executeQuery()`. No SQL strings are assembled in Vizion. Static report restrictions and query-service access constraints remain active. Existing reports without `rowKey` retain their previous selection semantics, while configured reports no longer require a full-table PHP selection pass.
+
+Browser column visibility is sent as `fields` in page requests. The server adds identity fields and URL-renderer dependencies to the requested projection and continues to apply active search, filter, tree, grouping and sort conditions. Hide/show actions trigger report reloads through the existing ModularGrid column-state watcher. Report export fields remain a separately configured whitelist and are unaffected by grid visibility.

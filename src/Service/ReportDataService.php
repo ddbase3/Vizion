@@ -213,6 +213,31 @@ final class ReportDataService implements IReportDataService {
 		$request = $this->queryBuilder->normalizeRequest($payload, $config);
 		$fields = $this->queryBuilder->getFields($config);
 		$fieldAliases = $this->resolveRequestedFieldAliases($payload['fields'] ?? null, $fields);
+		$identityAliases = $this->queryBuilder->getRowKeyAliases($config);
+		// Selection identity must not change when a column is hidden.
+		if($fieldAliases !== null) {
+			$fieldAliases = array_values(array_unique(array_merge($fieldAliases, $identityAliases)));
+			// Renderers may reference other report fields in their URL templates.
+			$fieldDefs = $this->queryBuilder->buildFieldDefs($fields);
+			foreach($fields as $field) {
+				$alias = (string)($field['alias'] ?? '');
+				if(!in_array($alias, $fieldAliases, true)) {
+					continue;
+				}
+				$renderer = $field['config']['valueRenderer'] ?? null;
+				if(!is_array($renderer) || !is_string($renderer['href'] ?? null)) {
+					continue;
+				}
+				if(preg_match_all('/\{([^{}]+)\}/', $renderer['href'], $matches)) {
+					foreach($matches[1] as $dependency) {
+						if($dependency !== 'value' && array_key_exists($dependency, $fieldDefs)) {
+							$fieldAliases[] = $dependency;
+						}
+					}
+				}
+			}
+			$fieldAliases = array_values(array_unique($fieldAliases));
+		}
 		$baseQuery = $this->queryBuilder->buildBaseQuery($config, $request);
 		$total = $this->loadTotal($config, $baseQuery);
 		$pageSize = (int)$request['pageSize'];
@@ -231,7 +256,9 @@ final class ReportDataService implements IReportDataService {
 				continue;
 			}
 
-			$row['__row_key'] = $this->buildRowKey($row, $offset + $index + 1);
+			$row['__row_key'] = $identityAliases !== []
+				? $this->queryBuilder->buildRowKey($config, $row)
+				: $this->buildRowKey($row, $offset + $index + 1);
 			$rows[] = $row;
 		}
 
