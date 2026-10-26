@@ -84,6 +84,49 @@ final class ModularGridReportQueryBuilderTest extends TestCase {
 		$this->assertSame(['status'], array_column($query['fields'] ?? [], 'alias'));
 	}
 
+	public function testCountOnlyReferencesFieldsNeededByGroupingOrHaving(): void {
+		$filters = $this->createStub(IReportFilterService::class);
+		$trees = $this->createStub(IReportTreeFilterService::class);
+		$builder = new ModularGridReportQueryBuilder($filters, $trees);
+		$config = $this->config();
+		$config['fields'][] = [
+			'alias' => 'custom_attribute',
+			'element' => ['type' => 'fld', 'table' => 'attributes', 'field' => 'value', 'tablealias' => 'a'],
+			'config' => ['visible' => false]
+		];
+		$count = $builder->buildCountQuery($config, [
+			'table' => 'report_rows',
+			'fields' => $config['fields'],
+			'limit' => 20,
+			'order_by' => []
+		]);
+		$this->assertSame(['__row__', '__total__'], array_column($count['fields'], 'alias'));
+		$this->assertArrayNotHasKey('order_by', $count);
+		$this->assertArrayNotHasKey('limit', $count);
+	}
+
+	public function testCountRetainsAliasReferencedByHaving(): void {
+		$filters = $this->createStub(IReportFilterService::class);
+		$trees = $this->createStub(IReportTreeFilterService::class);
+		$builder = new ModularGridReportQueryBuilder($filters, $trees);
+		$config = $this->config();
+		$config['having'] = ['type' => 'op', 'operator' => '>', 'params' => [
+			['type' => 'fld', 'field' => 'name'], 0
+		]];
+		$count = $builder->buildCountQuery($config, $config);
+		$this->assertSame(['__row__', 'name', '__total__'], array_column($count['fields'], 'alias'));
+	}
+
+	public function testDistinctCountRetainsProjectedFields(): void {
+		$filters = $this->createStub(IReportFilterService::class);
+		$trees = $this->createStub(IReportTreeFilterService::class);
+		$builder = new ModularGridReportQueryBuilder($filters, $trees);
+		$config = $this->config();
+		$config['distinct'] = true;
+		$count = $builder->buildCountQuery($config, $config);
+		$this->assertSame(['__row__', 'name', 'status', '__total__'], array_column($count['fields'], 'alias'));
+	}
+
 	/**
 	 * @return array<string, mixed>
 	 */

@@ -142,13 +142,28 @@ final class ModularGridReportQueryBuilder {
 	 */
 	public function buildCountQuery(array $config, array $baseQuery): array {
 		$countQuery = $baseQuery;
-		$countQuery['fields'] = [];
+		$countQuery['fields'] = [[
+			'element' => 1,
+			'alias' => '__row__'
+		]];
 
+		if(isset($config['group_by'])) {
+			$countQuery['group_by'] = $config['group_by'];
+		}
+		if(isset($config['having'])) {
+			$countQuery['having'] = $config['having'];
+		}
+
+		// DISTINCT depends on the full projected tuple. HAVING may depend on
+		// particular SELECT aliases. All other display fields can be omitted.
+		$distinct = !empty($baseQuery['distinct']);
 		foreach($this->getFields($config) as $field) {
-			if(!isset($field['element'], $field['alias'])) {
+			if(!isset($field['alias'], $field['element'])) {
 				continue;
 			}
-
+			if(!$distinct && (!isset($config['having']) || !$this->containsUnqualifiedField($config['having'], (string)$field['alias']))) {
+				continue;
+			}
 			$countQuery['fields'][] = [
 				'element' => $field['element'],
 				'alias' => $field['alias']
@@ -164,15 +179,6 @@ final class ModularGridReportQueryBuilder {
 			],
 			'alias' => '__total__'
 		];
-
-		if(isset($config['group_by'])) {
-			$countQuery['group_by'] = $config['group_by'];
-		}
-
-		if(isset($config['having'])) {
-			$countQuery['having'] = $config['having'];
-		}
-
 		unset($countQuery['limit'], $countQuery['offset'], $countQuery['order_by']);
 		return $countQuery;
 	}
@@ -299,6 +305,26 @@ final class ModularGridReportQueryBuilder {
 	/**
 	 * @param mixed $sortPayload
 	 * @param array<string, mixed> $config
+	 * @param array<int, array<string, mixed>> $fields
+	 * @return array<string, string>
+	 */
+	/** True when a structured HAVING expression refers to a SELECT alias. */
+	private function containsUnqualifiedField(mixed $node, string $alias): bool {
+		if(!is_array($node)) {
+			return false;
+		}
+		if(($node['type'] ?? '') === 'fld' && !isset($node['table']) && ($node['field'] ?? '') === $alias) {
+			return true;
+		}
+		foreach($node as $child) {
+			if($this->containsUnqualifiedField($child, $alias)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
 	 * @param array<int, array<string, mixed>> $fields
 	 * @return array<string, string>
 	 */

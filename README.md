@@ -112,3 +112,7 @@ GPL-3.0 License
 
 - [Frequently Asked Questions](docs/faq.md)
 - [Privacy and data processing](PRIVACY.md)
+
+## Count projection for optional report fields
+
+The modular-grid count query now projects a constant row marker and the existing window count, rather than every configured display column. Expressions referenced through a structured HAVING field alias remain projected. DISTINCT queries retain their complete projected tuple to preserve existing distinctness semantics. Grouping, HAVING predicates and the active query's WHERE filters remain unchanged. This avoids triggering optional lookup joins merely because an attribute was configured as a report column. Data and export queries keep their existing field-selection contracts.
