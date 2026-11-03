@@ -64,7 +64,7 @@ final class GeneralReportDisplayTest extends TestCase {
 		// ClassMapStub logs both: getInstanceByInterfaceName + instantiate
 		$methods = array_values(array_map(fn($c) => $c['method'], $classmap->calls));
 
-		$this->assertSame(['getInstanceByInterfaceName', 'instantiate'], array_slice($methods, 0, 2));
+		$this->assertSame(['getInstanceByInterfaceName', 'getClassByInterfaceName', 'instantiate'], array_slice($methods, 0, 3));
 
 		$this->assertSame(IDisplay::class, $classmap->calls[0]['interface'] ?? null);
 		$this->assertSame('datatablereportdisplay', $classmap->calls[0]['name'] ?? null);
@@ -101,10 +101,7 @@ final class GeneralReportDisplayTest extends TestCase {
 
 		$display = new GeneralReportDisplay($req, $classmap, $configProvider, $this->createTranslation());
 
-		$this->expectException(\Exception::class);
-		$this->expectExceptionMessage('Missing report identifier');
-
-		$display->getOutput('html');
+		$this->assertStringContainsString('Missing report identifier', $display->getOutput('html')); 
 	}
 
 	public function testGetOutputThrowsWhenDisplayIsInvalid(): void {
@@ -120,10 +117,7 @@ final class GeneralReportDisplayTest extends TestCase {
 
 		$display = new GeneralReportDisplay($req, $classmap, $configProvider, $this->createTranslation());
 
-		$this->expectException(\Exception::class);
-		$this->expectExceptionMessage('Invalid display: nope');
-
-		$display->getOutput('html');
+		$this->assertStringContainsString('Invalid display: nope', $display->getOutput('html'));
 	}
 	private function createTranslation(): ITranslation {
 		$translation = $this->createStub(ITranslation::class);
@@ -136,39 +130,4 @@ final class GeneralReportDisplayTest extends TestCase {
 
 }
 
-final class DataTableReportDisplayStub implements IDisplay {
-
-	public static ?self $lastInstance = null;
-	public static string $nextOutput = 'INNER_OUTPUT';
-
-	public ?array $receivedData = null;
-	public ?string $receivedOut = null;
-	public bool $receivedFinal = false;
-
-	public function __construct() {
-		self::$lastInstance = $this;
-	}
-
-	public static function reset(): void {
-		self::$lastInstance = null;
-		self::$nextOutput = 'INNER_OUTPUT';
-	}
-
-	public static function getName(): string {
-		return 'datatablereportdisplay';
-	}
-
-	public function setData($data): void {
-		$this->receivedData = is_array($data) ? $data : null;
-	}
-
-	public function getOutput(string $out = 'html', bool $final = false): string {
-		$this->receivedOut = (string)$out;
-		$this->receivedFinal = $final;
-		return self::$nextOutput;
-	}
-
-	public function getHelp(): string {
-		return 'HELP';
-	}
-}
+require_once __DIR__ . '/DataTableReportDisplayStub.php';

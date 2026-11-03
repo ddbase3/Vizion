@@ -70,17 +70,7 @@ final class FileReportConfigProviderTest extends TestCase {
 
 	private function createModuleRegistry(): IModuleRegistry {
 		$paths = $this->modulePaths;
-		return new class($paths) implements IModuleRegistry {
-			/** @param array<string,string> $paths */
-			public function __construct(private readonly array $paths) {}
-			public function getModuleNames(): array { return array_keys($this->paths); }
-			public function getModulePath(string $name): ?string { return $this->paths[$name] ?? null; }
-			public function requireModulePath(string $name): string {
-				$path = $this->getModulePath($name);
-				if ($path === null) throw new \RuntimeException('Module not found: ' . $name);
-				return $path;
-			}
-		};
+		return new FileReportConfigProviderTestDouble1($paths);
 	}
 
 	private function makePluginName(string $prefix): string {
@@ -115,3 +105,5 @@ final class FileReportConfigProviderTest extends TestCase {
 		@rmdir($dir);
 	}
 }
+
+require_once __DIR__ . '/FileReportConfigProviderTestDouble1.php';

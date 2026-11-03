@@ -8,6 +8,8 @@ use Base3\Api\IMvcView;
 use Base3\Api\IAssetResolver;
 use ResourceFoundation\Api\IQuerySchemaProvider;
 use ResourceFoundation\Api\IReportingScopeRegistry;
+use ResourceFoundation\Api\IScopedQuerySchemaProvider;
+use ResourceFoundation\Dto\ReportingScopeDefinition;
 use Base3\Authorization\Api\IAuthorizationService;
 use Base3\Authorization\Dto\AuthorizationDecision;
 
@@ -27,12 +29,13 @@ final class DataHawkSchemaDisplayTest extends TestCase {
 			$this->allowSettingsAuthorization()
 		);
 
-		$this->assertSame('Help of DataHawkSchemaDisplay', $display->getHelp());
+		$this->assertSame('Displays the DataHawk schema as an interactive database diagram.', $display->getHelp());
 	}
 
 	public function testGetOutputAssignsViewVariablesAndBuildsSchemaData(): void {
-		$schemaProvider = $this->createStub(IQuerySchemaProvider::class);
-		$schemaProvider->method('getSchema')->willReturn([
+		$schemaProvider = $this->createStub(IScopedQuerySchemaProvider::class);
+		$schemaProvider->method('getScopes')->willReturn(['crm-schema']);
+		$schemaProvider->method('getSchemaForScope')->with('crm-schema')->willReturn([
 			$this->makeTable(
 				name: 'users',
 				domain: 'crm',
@@ -54,7 +57,7 @@ final class DataHawkSchemaDisplayTest extends TestCase {
 		$viewState['output'] = 'HTML';
 		$view = $this->createMvcViewStub($viewState);
 
-		$display = new DataHawkSchemaDisplay($view, $schemaProvider, $this->createStub(IReportingScopeRegistry::class), $assetResolver, $this->allowSettingsAuthorization());
+		$display = new DataHawkSchemaDisplay($view, $schemaProvider, $this->reportingScopeRegistry(), $assetResolver, $this->allowSettingsAuthorization());
 
 		$out = $display->getOutput('html');
 		$this->assertSame('HTML', $out);
@@ -62,10 +65,11 @@ final class DataHawkSchemaDisplayTest extends TestCase {
 		$this->assertSame(dirname(__DIR__, 2), $viewState['path']);
 		$this->assertSame('Display/DataHawkSchemaDisplay.php', $viewState['template']);
 
-		$this->assertArrayHasKey('data', $viewState['assigned']);
+		$this->assertArrayHasKey('scopeData', $viewState['assigned']);
+		$this->assertSame('crm', $viewState['assigned']['selectedScope']);
 		$this->assertArrayHasKey('resolve', $viewState['assigned']);
 
-		$payload = $viewState['assigned']['data'];
+		$payload = $viewState['assigned']['scopeData']['crm'];
 		$this->assertIsArray($payload);
 
 		$this->assertIsArray($payload['data'] ?? null);
@@ -110,8 +114,9 @@ final class DataHawkSchemaDisplayTest extends TestCase {
 	}
 
 	public function testGetOutputFiltersByDomainWhenDisplayDataHasDomain(): void {
-		$schemaProvider = $this->createStub(IQuerySchemaProvider::class);
-		$schemaProvider->method('getSchema')->willReturn([
+		$schemaProvider = $this->createStub(IScopedQuerySchemaProvider::class);
+		$schemaProvider->method('getScopes')->willReturn(['crm-schema']);
+		$schemaProvider->method('getSchemaForScope')->with('crm-schema')->willReturn([
 			$this->makeTable(name: 't1', domain: 'crm', fields: [], joins: [], position: []),
 			$this->makeTable(name: 't2', domain: 'sales', fields: [], joins: [], position: []),
 		]);
@@ -122,16 +127,24 @@ final class DataHawkSchemaDisplayTest extends TestCase {
 		$viewState = $this->makeViewState();
 		$view = $this->createMvcViewStub($viewState);
 
-		$display = new DataHawkSchemaDisplay($view, $schemaProvider, $this->createStub(IReportingScopeRegistry::class), $assetResolver, $this->allowSettingsAuthorization());
+		$display = new DataHawkSchemaDisplay($view, $schemaProvider, $this->reportingScopeRegistry(), $assetResolver, $this->allowSettingsAuthorization());
 		$display->setData(['domain' => 'crm']);
 
 		$display->getOutput('html');
 
-		$payload = $viewState['assigned']['data'] ?? null;
+		$payload = $viewState['assigned']['scopeData']['crm'] ?? null;
 		$this->assertIsArray($payload);
 
 		$this->assertCount(1, $payload['data']);
 		$this->assertSame('t1', $payload['data'][0]['id']);
+	}
+
+	private function reportingScopeRegistry(): IReportingScopeRegistry {
+		$registry = $this->createStub(IReportingScopeRegistry::class);
+		$registry->method('getScopes')->willReturn([
+			new ReportingScopeDefinition('crm', 'CRM', ['crm-schema'])
+		]);
+		return $registry;
 	}
 
 	private function allowSettingsAuthorization(): IAuthorizationService {

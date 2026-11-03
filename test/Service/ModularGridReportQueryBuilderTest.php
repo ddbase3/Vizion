@@ -13,11 +13,11 @@ final class ModularGridReportQueryBuilderTest extends TestCase {
 		$filters = $this->createMock(IReportFilterService::class);
 		$filters->expects($this->once())
 			->method('normalizeFilters')
-			->with(['status' => 'active'], $this->isType('array'))
+			->with(['status' => 'active'], $this->isArray())
 			->willReturn(['status' => 'active']);
 		$filters->expects($this->once())
 			->method('buildFilterWhere')
-			->with(['status' => 'active'], $this->isType('array'), $this->isType('array'))
+			->with(['status' => 'active'], $this->isArray(), $this->isArray())
 			->willReturn([
 				'type' => 'op',
 				'operator' => '=',
@@ -30,11 +30,11 @@ final class ModularGridReportQueryBuilderTest extends TestCase {
 		$treeFilters = $this->createMock(IReportTreeFilterService::class);
 		$treeFilters->expects($this->once())
 			->method('normalizeTreeFilters')
-			->with(['category' => '42'], $this->isType('array'))
+			->with(['category' => '42'], $this->isArray())
 			->willReturn(['category' => '42']);
 		$treeFilters->expects($this->once())
 			->method('buildFilterWhere')
-			->with(['category' => '42'], $this->isType('array'))
+			->with(['category' => '42'], $this->isArray())
 			->willReturn([
 				'type' => 'op',
 				'operator' => 'IN',

@@ -6,6 +6,7 @@ use PHPUnit\Framework\TestCase;
 use Vizion\ReportDisplay\DataTableReportDisplay;
 use Base3\Api\IMvcView;
 use Base3\Api\IAssetResolver;
+use Base3\LinkTarget\Api\ILinkTargetService;
 use Base3\Configuration\Api\IConfiguration;
 use Base3\Logger\Api\ILogger;
 use ResourceFoundation\Api\IQueryService;
@@ -50,7 +51,7 @@ final class DataTableReportDisplayTest extends TestCase {
 		$configState = ['base' => ['endpoint' => '']];
 		$configuration = $this->createConfigurationStub($configState);
 
-		$display = new DataTableReportDisplay($view, $queryService, $assetResolver, $logger, $configuration);
+		$display = new DataTableReportDisplay($view, $queryService, $assetResolver, $logger, $this->createStub(ILinkTargetService::class));
 
 		$backupGet = $_GET ?? [];
 		$_GET = [
@@ -158,7 +159,7 @@ final class DataTableReportDisplayTest extends TestCase {
 		$configState = ['base' => ['endpoint' => '']];
 		$configuration = $this->createConfigurationStub($configState);
 
-		$display = new DataTableReportDisplay($view, $queryService, $assetResolver, $logger, $configuration);
+		$display = new DataTableReportDisplay($view, $queryService, $assetResolver, $logger, $this->createStub(ILinkTargetService::class));
 
 		$backupGet = $_GET ?? [];
 		$_GET = [];
@@ -221,7 +222,7 @@ final class DataTableReportDisplayTest extends TestCase {
 		$configState = ['base' => ['endpoint' => '']];
 		$configuration = $this->createConfigurationStub($configState);
 
-		$display = new DataTableReportDisplay($view, $queryService, $assetResolver, $logger, $configuration);
+		$display = new DataTableReportDisplay($view, $queryService, $assetResolver, $logger, $this->createStub(ILinkTargetService::class));
 
 		$backupGet = $_GET ?? [];
 		$_GET = [
@@ -268,7 +269,14 @@ final class DataTableReportDisplayTest extends TestCase {
 		$configState = ['base' => ['endpoint' => '']];
 		$configuration = $this->createConfigurationStub($configState);
 
-		$display = new DataTableReportDisplay($view, $queryService, $assetResolver, $logger, $configuration);
+		$linkTarget = $this->createMock(ILinkTargetService::class);
+		$linkTarget->expects($this->once())->method('getLink')
+			->with(
+				['name' => 'generalreportdisplay', 'out' => 'json'],
+				['report' => 'my_report']
+			)
+			->willReturn('?name=generalreportdisplay&out=json&report=my_report');
+		$display = new DataTableReportDisplay($view, $queryService, $assetResolver, $logger, $linkTarget);
 
 		$config = [
 			'report' => 'my_report',
@@ -334,7 +342,7 @@ final class DataTableReportDisplayTest extends TestCase {
 		$configState = ['base' => ['endpoint' => '']];
 		$configuration = $this->createConfigurationStub($configState);
 
-		$display = new DataTableReportDisplay($view, $queryService, $assetResolver, $logger, $configuration);
+		$display = new DataTableReportDisplay($view, $queryService, $assetResolver, $logger, $this->createStub(ILinkTargetService::class));
 		$display->setData([]);
 
 		$this->assertSame('DEFAULT HTML', $display->getOutput());
@@ -352,7 +360,7 @@ final class DataTableReportDisplayTest extends TestCase {
 			$this->createQueryServiceStub($queryState),
 			$this->createAssetResolverStub($assetState),
 			$this->createLoggerStub($logState),
-			$this->createConfigurationStub($configState)
+			$this->createStub(ILinkTargetService::class)
 		);
 	}
 

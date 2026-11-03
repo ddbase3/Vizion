@@ -104,19 +104,19 @@ final class ReportExportersTest extends TestCase {
 		$dataTable = new DataTableReportExporter($assets);
 		$dataTable->setResult($result);
 		$dataTableHtml = $dataTable->toString();
-		$this->assertStringContainsString('/resolved/jquery.datatable.min.js', $dataTableHtml);
+		$this->assertStringContainsString('\/resolved\/jquery.datatable.min.js', $dataTableHtml);
 		$this->assertStringContainsString('jqueryDataTable', $dataTableHtml);
 
 		$bar = new BarChartReportExporter($assets);
 		$bar->setResult($result);
 		$barHtml = $bar->toString();
-		$this->assertStringContainsString('/resolved/chart.js', $barHtml);
+		$this->assertStringContainsString('\/resolved\/chart.js', $barHtml);
 		$this->assertStringContainsString('type:"bar"', $barHtml);
 
 		$pie = new PieChartReportExporter($assets);
 		$pie->setResult($result);
 		$pieHtml = $pie->toString();
-		$this->assertStringContainsString('/resolved/chart.js', $pieHtml);
+		$this->assertStringContainsString('\/resolved\/chart.js', $pieHtml);
 		$this->assertStringContainsString('type:"doughnut"', $pieHtml);
 	}
 

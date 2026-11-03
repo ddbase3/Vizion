@@ -35,7 +35,7 @@ final class ReportTreeFilterServiceTest extends TestCase {
 	}
 
 	public function testGridTreeFilterKeepsConfiguredPresentationValues(): void {
-		$queryService = $this->createMock(IQueryService::class);
+		$queryService = $this->createStub(IQueryService::class);
 		$service = new ReportTreeFilterService($queryService);
 		$fields = $service->buildGridTreeFilters($this->config());
 
@@ -204,7 +204,7 @@ final class ReportTreeFilterServiceTest extends TestCase {
 	}
 
 	public function testUnavailableSelectionFailsInsteadOfBroadeningReport(): void {
-		$queryService = $this->createMock(IQueryService::class);
+		$queryService = $this->createStub(IQueryService::class);
 		$queryService->method('executeQuery')->willReturn(new QueryResult([], []));
 
 		$service = new ReportTreeFilterService($queryService);
