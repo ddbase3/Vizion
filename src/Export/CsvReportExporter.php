@@ -33,7 +33,7 @@ final class CsvReportExporter extends AbstractReportExporter {
 		fputcsv($stream, array_map(
 			fn(array $column): string => $this->getColumnLabel($column),
 			$result->columns
-		));
+		), ',', '"', '\\');
 
 		foreach($result->rows as $row) {
 			if(!is_array($row)) {
@@ -44,7 +44,7 @@ final class CsvReportExporter extends AbstractReportExporter {
 			foreach($result->columns as $index => $column) {
 				$values[] = $this->getRowValue($row, $column, $index);
 			}
-			fputcsv($stream, $values);
+			fputcsv($stream, $values, ',', '"', '\\');
 		}
 
 		rewind($stream);
