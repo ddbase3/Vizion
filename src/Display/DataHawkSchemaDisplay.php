@@ -18,6 +18,9 @@
 
 namespace Vizion\Display;
 
+use Base3\Usermanager\Permission;
+use Base3\Authorization\Dto\AuthorizationRequest;
+use Base3\Authorization\Api\IAuthorizationService;
 use Base3\Api\IAssetResolver;
 use Base3\Api\IDisplay;
 use Base3\Api\IMvcView;
@@ -35,7 +38,8 @@ class DataHawkSchemaDisplay implements IDisplay {
 		private readonly IMvcView $view,
 		private readonly IQuerySchemaProvider $queryschemaprovider,
 		private readonly IReportingScopeRegistry $reportingScopeRegistry,
-		private readonly IAssetResolver $assetResolver
+		private readonly IAssetResolver $assetResolver,
+		private readonly IAuthorizationService $settingsAuthorization
 	) {}
 
 	// Implementation of IBase
@@ -53,6 +57,14 @@ class DataHawkSchemaDisplay implements IDisplay {
 	// Implementation of IOutput
 
 	public function getOutput(string $out = 'html', bool $final = false): string {
+		if (!$this->settingsAuthorization->decide(new AuthorizationRequest(
+			$this->settingsAuthorization->getDefaultAuthority(),
+			Permission::for('feature', \Vizion\SettingsTab\DatahawkschemaSettingsTab::getName())
+		))->isAllowed()) {
+			http_response_code(403);
+			return '';
+		}
+
 		$this->loadTranslations();
 
 		$scopeData = [];

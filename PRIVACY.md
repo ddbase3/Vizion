@@ -271,3 +271,11 @@ ModularGrid reports may now define stable `rowKey` aliases. The JSON response in
 For configured row identities, the export endpoint decodes selected IDs, validates their shape and bounded number, and builds a structured identity `WHERE` condition. The active `IQueryService` continues enforcing the report's own constraints. The server no longer loads all report rows to match selected keys for those reports; legacy reports without configured row identities keep their previous behavior.
 
 The browser now transmits a list of visible grid fields to reduce transferred data and unnecessary joins. Hidden identity and rendering dependency fields are still loaded server-side where needed. Column selection, filter state and selected-row identifiers can contain private context and remain under the existing browser/session and query-service privacy boundaries.
+
+## Settings schema tab access
+
+The DataHawk schema settings entry has its own feature check and plugin-local
+translation. Vizion generic report displays are reused by other consumers
+and are not globally restricted by this unrelated schema feature. Report
+query endpoints and scope authorization remain the reporting owner's duty.
+This patch does not change report records, retention or exports.

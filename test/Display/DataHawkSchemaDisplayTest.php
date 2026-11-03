@@ -7,6 +7,9 @@ use Vizion\Display\DataHawkSchemaDisplay;
 use Base3\Api\IMvcView;
 use Base3\Api\IAssetResolver;
 use ResourceFoundation\Api\IQuerySchemaProvider;
+use ResourceFoundation\Api\IReportingScopeRegistry;
+use Base3\Authorization\Api\IAuthorizationService;
+use Base3\Authorization\Dto\AuthorizationDecision;
 
 final class DataHawkSchemaDisplayTest extends TestCase {
 
@@ -19,7 +22,9 @@ final class DataHawkSchemaDisplayTest extends TestCase {
 		$display = new DataHawkSchemaDisplay(
 			$this->createMvcViewStub($viewState),
 			$this->createStub(IQuerySchemaProvider::class),
-			$this->createStub(IAssetResolver::class)
+			$this->createStub(IReportingScopeRegistry::class),
+			$this->createStub(IAssetResolver::class),
+			$this->allowSettingsAuthorization()
 		);
 
 		$this->assertSame('Help of DataHawkSchemaDisplay', $display->getHelp());
@@ -49,7 +54,7 @@ final class DataHawkSchemaDisplayTest extends TestCase {
 		$viewState['output'] = 'HTML';
 		$view = $this->createMvcViewStub($viewState);
 
-		$display = new DataHawkSchemaDisplay($view, $schemaProvider, $assetResolver);
+		$display = new DataHawkSchemaDisplay($view, $schemaProvider, $this->createStub(IReportingScopeRegistry::class), $assetResolver, $this->allowSettingsAuthorization());
 
 		$out = $display->getOutput('html');
 		$this->assertSame('HTML', $out);
@@ -117,7 +122,7 @@ final class DataHawkSchemaDisplayTest extends TestCase {
 		$viewState = $this->makeViewState();
 		$view = $this->createMvcViewStub($viewState);
 
-		$display = new DataHawkSchemaDisplay($view, $schemaProvider, $assetResolver);
+		$display = new DataHawkSchemaDisplay($view, $schemaProvider, $this->createStub(IReportingScopeRegistry::class), $assetResolver, $this->allowSettingsAuthorization());
 		$display->setData(['domain' => 'crm']);
 
 		$display->getOutput('html');
@@ -127,6 +132,13 @@ final class DataHawkSchemaDisplayTest extends TestCase {
 
 		$this->assertCount(1, $payload['data']);
 		$this->assertSame('t1', $payload['data'][0]['id']);
+	}
+
+	private function allowSettingsAuthorization(): IAuthorizationService {
+		$authorization = $this->createStub(IAuthorizationService::class);
+		$authorization->method('getDefaultAuthority')->willReturn('test');
+		$authorization->method('decide')->willReturn(AuthorizationDecision::allow());
+		return $authorization;
 	}
 
 	private function makeViewState(): array {

@@ -124,3 +124,11 @@ A ModularGrid definition may declare `"rowKey": ["id"]` or a composite identity 
 Selected-row export adds the decoded identity conditions directly to the report's structured WHERE expression before `IQueryService::executeQuery()`. No SQL strings are assembled in Vizion. Static report restrictions and query-service access constraints remain active. Existing reports without `rowKey` retain their previous selection semantics, while configured reports no longer require a full-table PHP selection pass.
 
 Browser column visibility is sent as `fields` in page requests. The server adds identity fields and URL-renderer dependencies to the requested projection and continues to apply active search, filter, tree, grouping and sort conditions. Hide/show actions trigger report reloads through the existing ModularGrid column-state watcher. Report export fields remain a separately configured whitelist and are unaffected by grid visibility.
+
+## Discoverable Settings entries
+
+Vizion owns its DataHawk schema settings entry, feature and translated texts
+in `src/SettingsTab/` and `lang/Settings/`. Its schema display enforces the
+feature for its direct endpoint, separately from native/report data scope
+checks. General-purpose report displays continue to serve other features;
+consumers must not infer privileged report access from a visible tab.
