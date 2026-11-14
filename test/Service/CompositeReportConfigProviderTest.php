@@ -1,14 +1,29 @@
 <?php declare(strict_types=1);
 
-namespace Vizion\Test\Service;
+/***********************************************************************
+ * This file is part of Vizion for BASE3 Framework.
+ *
+ * Vizion provides reporting and data visualization for BASE3 projects.
+ * It supports grids, interactive tables, charts and data exporters.
+ * Visual components consume structured reporting and query results.
+ *
+ * Developed by Daniel Dahme
+ * Licensed under GPL-3.0
+ * https://www.gnu.org/licenses/gpl-3.0.en.html
+ *
+ * https://base3.de/v/vizion
+ * https://github.com/ddbase3/Vizion
+ **********************************************************************/
 
-use Base3\Api\IClassMap;
+namespace Base3\Vizion\Test\Service;
+
+use Base3\CoreFoundation\Api\IClassMap;
 use PHPUnit\Framework\TestCase;
-use ResourceFoundation\Api\IReportConfigDefinitionProvider;
-use ResourceFoundation\Api\IReportingScopeRegistry;
-use ResourceFoundation\Dto\ReportingScopeDefinition;
-use Vizion\Service\CompositeReportConfigProvider;
-use Vizion\Service\FileReportConfigDefinitionProvider;
+use Base3\ResourceFoundation\Api\IReportConfigDefinitionProvider;
+use Base3\ResourceFoundation\Api\IReportingScopeRegistry;
+use Base3\ResourceFoundation\Dto\ReportingScopeDefinition;
+use Base3\Vizion\Service\CompositeReportConfigProvider;
+use Base3\Vizion\Service\FileReportConfigDefinitionProvider;
 
 final class CompositeReportConfigProviderTest extends TestCase {
 

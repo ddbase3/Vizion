@@ -16,12 +16,12 @@
  * https://github.com/ddbase3/Vizion
  **********************************************************************/
 
-namespace Vizion\Service;
+namespace Base3\Vizion\Service;
 
-use Base3\Api\IClassMap;
-use ResourceFoundation\Api\IReportConfigDefinitionProvider;
-use ResourceFoundation\Api\IReportingScopeRegistry;
-use Vizion\Api\IReportConfigProvider;
+use Base3\CoreFoundation\Api\IClassMap;
+use Base3\ResourceFoundation\Api\IReportConfigDefinitionProvider;
+use Base3\ResourceFoundation\Api\IReportingScopeRegistry;
+use Base3\Vizion\Api\IReportConfigProvider;
 
 final class CompositeReportConfigProvider implements IReportConfigProvider {
 

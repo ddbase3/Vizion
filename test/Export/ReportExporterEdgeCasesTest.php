@@ -1,14 +1,29 @@
 <?php declare(strict_types=1);
 
-namespace Vizion\Test\Export;
+/***********************************************************************
+ * This file is part of Vizion for BASE3 Framework.
+ *
+ * Vizion provides reporting and data visualization for BASE3 projects.
+ * It supports grids, interactive tables, charts and data exporters.
+ * Visual components consume structured reporting and query results.
+ *
+ * Developed by Daniel Dahme
+ * Licensed under GPL-3.0
+ * https://www.gnu.org/licenses/gpl-3.0.en.html
+ *
+ * https://base3.de/v/vizion
+ * https://github.com/ddbase3/Vizion
+ **********************************************************************/
+
+namespace Base3\Vizion\Test\Export;
 
 use PHPUnit\Framework\TestCase;
-use ResourceFoundation\Dto\QueryResult;
+use Base3\ResourceFoundation\Dto\QueryResult;
 use RuntimeException;
-use Vizion\Export\CsvReportExporter;
-use Vizion\Export\ExcelHtmlReportExporter;
-use Vizion\Export\HtmlTableReportExporter;
-use Vizion\Export\JsonReportExporter;
+use Base3\Vizion\Export\CsvReportExporter;
+use Base3\Vizion\Export\ExcelHtmlReportExporter;
+use Base3\Vizion\Export\HtmlTableReportExporter;
+use Base3\Vizion\Export\JsonReportExporter;
 
 final class ReportExporterEdgeCasesTest extends TestCase {
 

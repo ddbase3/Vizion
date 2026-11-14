@@ -16,13 +16,13 @@
  * https://github.com/ddbase3/Vizion
  **********************************************************************/
 
-namespace Vizion\ReportDisplay;
+namespace Base3\Vizion\ReportDisplay;
 
-use Base3\Api\IAssetResolver;
-use Base3\Api\IDisplay;
-use Base3\Api\IMvcView;
-use ResourceFoundation\Api\IQueryService;
-use ResourceFoundation\Dto\QueryResult;
+use Base3\CoreFoundation\Api\IAssetResolver;
+use Base3\CoreFoundation\Api\IDisplay;
+use Base3\CoreFoundation\Api\IMvcView;
+use Base3\ResourceFoundation\Api\IQueryService;
+use Base3\ResourceFoundation\Dto\QueryResult;
 use Throwable;
 
 /**

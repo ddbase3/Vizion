@@ -1,12 +1,27 @@
 <?php declare(strict_types=1);
 
-namespace Vizion\Test\TreeFilter;
+/***********************************************************************
+ * This file is part of Vizion for BASE3 Framework.
+ *
+ * Vizion provides reporting and data visualization for BASE3 projects.
+ * It supports grids, interactive tables, charts and data exporters.
+ * Visual components consume structured reporting and query results.
+ *
+ * Developed by Daniel Dahme
+ * Licensed under GPL-3.0
+ * https://www.gnu.org/licenses/gpl-3.0.en.html
+ *
+ * https://base3.de/v/vizion
+ * https://github.com/ddbase3/Vizion
+ **********************************************************************/
+
+namespace Base3\Vizion\Test\TreeFilter;
 
 use PHPUnit\Framework\TestCase;
-use ResourceFoundation\Api\IQueryService;
-use ResourceFoundation\Dto\QueryResult;
+use Base3\ResourceFoundation\Api\IQueryService;
+use Base3\ResourceFoundation\Dto\QueryResult;
 use RuntimeException;
-use Vizion\TreeFilter\ReportTreeFilterService;
+use Base3\Vizion\TreeFilter\ReportTreeFilterService;
 
 final class ReportTreeFilterServiceTest extends TestCase {
 

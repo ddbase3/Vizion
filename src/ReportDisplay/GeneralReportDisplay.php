@@ -16,15 +16,15 @@
  * https://github.com/ddbase3/Vizion
  **********************************************************************/
 
-namespace Vizion\ReportDisplay;
+namespace Base3\Vizion\ReportDisplay;
 
-use Base3\Api\IDisplay;
-use Base3\Api\IRequest;
-use Base3\Api\IClassMap;
-use Base3\Translation\Api\ITranslation;
+use Base3\CoreFoundation\Api\IDisplay;
+use Base3\CoreFoundation\Api\IRequest;
+use Base3\CoreFoundation\Api\IClassMap;
+use Base3\CoreFoundation\Translation\Api\ITranslation;
 use Throwable;
-use Vizion\Api\IReportConfigProvider;
-use Vizion\Api\IReportDisplay;
+use Base3\Vizion\Api\IReportConfigProvider;
+use Base3\Vizion\Api\IReportDisplay;
 
 class GeneralReportDisplay implements IReportDisplay {
 

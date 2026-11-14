@@ -16,23 +16,23 @@
  * https://github.com/ddbase3/Vizion
  **********************************************************************/
 
-namespace Vizion\ReportDisplay;
+namespace Base3\Vizion\ReportDisplay;
 
-use Base3\Api\IAssetResolver;
-use Base3\Api\IClassMap;
-use Base3\Api\IDisplay;
-use Base3\Api\IMvcView;
-use Base3\Api\IRequest;
-use Base3\LinkTarget\Api\ILinkTargetService;
-use Base3\Logger\Api\ILogger;
-use ResourceFoundation\Api\IQueryService;
-use ResourceFoundation\Api\IReportExporter;
-use ResourceFoundation\Dto\QueryResult;
-use Vizion\Api\IReportCellRendererService;
-use Vizion\Api\IReportFilterService;
-use Vizion\Api\IReportDataService;
-use Vizion\Api\IReportTreeFilterService;
-use Vizion\Service\ModularGridReportQueryBuilder;
+use Base3\CoreFoundation\Api\IAssetResolver;
+use Base3\CoreFoundation\Api\IClassMap;
+use Base3\CoreFoundation\Api\IDisplay;
+use Base3\CoreFoundation\Api\IMvcView;
+use Base3\CoreFoundation\Api\IRequest;
+use Base3\CoreFoundation\LinkTarget\Api\ILinkTargetService;
+use Base3\CoreFoundation\Logger\Api\ILogger;
+use Base3\ResourceFoundation\Api\IQueryService;
+use Base3\ResourceFoundation\Api\IReportExporter;
+use Base3\ResourceFoundation\Dto\QueryResult;
+use Base3\Vizion\Api\IReportCellRendererService;
+use Base3\Vizion\Api\IReportFilterService;
+use Base3\Vizion\Api\IReportDataService;
+use Base3\Vizion\Api\IReportTreeFilterService;
+use Base3\Vizion\Service\ModularGridReportQueryBuilder;
 
 class ModularGridReportDisplay implements IDisplay {
 

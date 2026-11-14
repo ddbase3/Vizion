@@ -1,21 +1,36 @@
 <?php declare(strict_types=1);
 
-namespace Vizion\Test\Chart;
+/***********************************************************************
+ * This file is part of Vizion for BASE3 Framework.
+ *
+ * Vizion provides reporting and data visualization for BASE3 projects.
+ * It supports grids, interactive tables, charts and data exporters.
+ * Visual components consume structured reporting and query results.
+ *
+ * Developed by Daniel Dahme
+ * Licensed under GPL-3.0
+ * https://www.gnu.org/licenses/gpl-3.0.en.html
+ *
+ * https://base3.de/v/vizion
+ * https://github.com/ddbase3/Vizion
+ **********************************************************************/
+
+namespace Base3\Vizion\Test\Chart;
 
 use Base3\Test\Core\ClassMapStub;
 use PHPUnit\Framework\TestCase;
-use ResourceFoundation\Dto\QueryResult;
-use Vizion\Chart\Renderer\BarChartRenderer;
-use Vizion\Chart\Renderer\DoughnutChartRenderer;
-use Vizion\Chart\Renderer\LineChartRenderer;
-use Vizion\Chart\ReportChartService;
-use Vizion\Filter\Control\NativeFilterControl;
-use Vizion\Filter\ReportFilterService;
-use Vizion\Filter\Type\TextFilterType;
-use Vizion\Renderer\Column\ValueColumnRenderer;
-use Vizion\Renderer\Formatter\NumberValueFormatter;
-use Vizion\Renderer\Formatter\TextValueFormatter;
-use Vizion\Renderer\ReportCellRendererService;
+use Base3\ResourceFoundation\Dto\QueryResult;
+use Base3\Vizion\Chart\Renderer\BarChartRenderer;
+use Base3\Vizion\Chart\Renderer\DoughnutChartRenderer;
+use Base3\Vizion\Chart\Renderer\LineChartRenderer;
+use Base3\Vizion\Chart\ReportChartService;
+use Base3\Vizion\Filter\Control\NativeFilterControl;
+use Base3\Vizion\Filter\ReportFilterService;
+use Base3\Vizion\Filter\Type\TextFilterType;
+use Base3\Vizion\Renderer\Column\ValueColumnRenderer;
+use Base3\Vizion\Renderer\Formatter\NumberValueFormatter;
+use Base3\Vizion\Renderer\Formatter\TextValueFormatter;
+use Base3\Vizion\Renderer\ReportCellRendererService;
 
 final class ReportChartServiceBehaviorTest extends TestCase {
 

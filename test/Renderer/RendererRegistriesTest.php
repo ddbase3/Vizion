@@ -1,18 +1,33 @@
 <?php declare(strict_types=1);
 
-namespace Vizion\Test\Renderer;
+/***********************************************************************
+ * This file is part of Vizion for BASE3 Framework.
+ *
+ * Vizion provides reporting and data visualization for BASE3 projects.
+ * It supports grids, interactive tables, charts and data exporters.
+ * Visual components consume structured reporting and query results.
+ *
+ * Developed by Daniel Dahme
+ * Licensed under GPL-3.0
+ * https://www.gnu.org/licenses/gpl-3.0.en.html
+ *
+ * https://base3.de/v/vizion
+ * https://github.com/ddbase3/Vizion
+ **********************************************************************/
+
+namespace Base3\Vizion\Test\Renderer;
 
 use Base3\Test\Core\ClassMapStub;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
-use Vizion\Renderer\Column\ValueColumnRenderer;
-use Vizion\Renderer\Formatter\NumberValueFormatter;
-use Vizion\Renderer\Formatter\TextValueFormatter;
-use Vizion\Renderer\ReportColumnRendererRegistry;
-use Vizion\Renderer\ReportRowRendererRegistry;
-use Vizion\Renderer\ReportValueFormatterRegistry;
-use Vizion\Renderer\ReportValueRendererRegistry;
-use Vizion\Renderer\Value\TextValueRenderer;
+use Base3\Vizion\Renderer\Column\ValueColumnRenderer;
+use Base3\Vizion\Renderer\Formatter\NumberValueFormatter;
+use Base3\Vizion\Renderer\Formatter\TextValueFormatter;
+use Base3\Vizion\Renderer\ReportColumnRendererRegistry;
+use Base3\Vizion\Renderer\ReportRowRendererRegistry;
+use Base3\Vizion\Renderer\ReportValueFormatterRegistry;
+use Base3\Vizion\Renderer\ReportValueRendererRegistry;
+use Base3\Vizion\Renderer\Value\TextValueRenderer;
 
 final class RendererRegistriesTest extends TestCase {
 

@@ -8,7 +8,7 @@ Vizion owns report presentation and report orchestration. It does not implement 
 
 ## How does Vizion obtain report data?
 
-Vizion depends on the neutral `ResourceFoundation\Api\IQueryService` contract. Report displays and services build structured query definitions and pass them to the active `IQueryService` implementation.
+Vizion depends on the neutral `Base3\ResourceFoundation\Api\IQueryService` contract. Report displays and services build structured query definitions and pass them to the active `IQueryService` implementation.
 
 Vizion therefore does not depend on a specific query-engine class. DataHawk is one possible implementation, but it is not hard-coded into Vizion's report execution path.
 
@@ -33,7 +33,7 @@ Reports are declarative arrays, commonly loaded from JSON definitions. A definit
 
 ## How are report definitions discovered?
 
-`CompositeReportConfigProvider` discovers `ResourceFoundation\Api\IReportConfigDefinitionProvider` implementations through the BASE3 class map.
+`CompositeReportConfigProvider` discovers `Base3\ResourceFoundation\Api\IReportConfigDefinitionProvider` implementations through the BASE3 class map.
 
 Each provider owns one technical report scope. Vizion can resolve a unique unqualified report ID, a technical `scope:report` ID, or a user-facing reporting-scope-qualified ID provided through `IReportingScopeRegistry`.
 

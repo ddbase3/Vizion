@@ -1,19 +1,34 @@
 <?php declare(strict_types=1);
 
-namespace Vizion\Test\ReportDisplay;
+/***********************************************************************
+ * This file is part of Vizion for BASE3 Framework.
+ *
+ * Vizion provides reporting and data visualization for BASE3 projects.
+ * It supports grids, interactive tables, charts and data exporters.
+ * Visual components consume structured reporting and query results.
+ *
+ * Developed by Daniel Dahme
+ * Licensed under GPL-3.0
+ * https://www.gnu.org/licenses/gpl-3.0.en.html
+ *
+ * https://base3.de/v/vizion
+ * https://github.com/ddbase3/Vizion
+ **********************************************************************/
 
-use Base3\Api\IAssetResolver;
-use Base3\Api\IClassMap;
-use Base3\Api\IMvcView;
-use Base3\Api\IRequest;
-use Base3\LinkTarget\Api\ILinkTargetService;
+namespace Base3\Vizion\Test\ReportDisplay;
+
+use Base3\CoreFoundation\Api\IAssetResolver;
+use Base3\CoreFoundation\Api\IClassMap;
+use Base3\CoreFoundation\Api\IMvcView;
+use Base3\CoreFoundation\Api\IRequest;
+use Base3\CoreFoundation\LinkTarget\Api\ILinkTargetService;
 use PHPUnit\Framework\TestCase;
-use ResourceFoundation\Api\IQueryService;
-use ResourceFoundation\Dto\QueryResult;
-use Vizion\Api\IReportCellRendererService;
-use Vizion\Api\IReportConfigProvider;
-use Vizion\Api\IReportFilterService;
-use Vizion\ReportDisplay\MatrixReportDisplay;
+use Base3\ResourceFoundation\Api\IQueryService;
+use Base3\ResourceFoundation\Dto\QueryResult;
+use Base3\Vizion\Api\IReportCellRendererService;
+use Base3\Vizion\Api\IReportConfigProvider;
+use Base3\Vizion\Api\IReportFilterService;
+use Base3\Vizion\ReportDisplay\MatrixReportDisplay;
 
 final class MatrixReportDisplayBehaviorTest extends TestCase {
 
@@ -78,7 +93,7 @@ final class MatrixReportDisplayBehaviorTest extends TestCase {
 
 	public function testDetailModeDelegatesToExistingDisplayByInterface(): void {
 		$seen = [];
-		$child = $this->createStub(\Base3\Api\IDisplay::class);
+		$child = $this->createStub(\Base3\CoreFoundation\Api\IDisplay::class);
 		$child->method('setData')->willReturnCallback(static function($data) use (&$seen): void { $seen = $data; });
 		$child->method('getOutput')->willReturn('{"ok":true,"found":true,"detail":{"id":7}}');
 		$map = $this->createStub(IClassMap::class);
@@ -103,7 +118,7 @@ final class MatrixReportDisplayBehaviorTest extends TestCase {
 		$missing = $this->display($input, $this->createStub(IQueryService::class));
 		$missing->setData($this->config());
 		$this->assertStringContainsString('Invalid matrix subreport display', $this->json($missing)['error']);
-		$child = $this->createStub(\Base3\Api\IDisplay::class);
+		$child = $this->createStub(\Base3\CoreFoundation\Api\IDisplay::class);
 		$child->method('getOutput')->willReturn('not-json');
 		$map = $this->createStub(IClassMap::class);
 		$map->method('getInstanceByInterfaceName')->willReturn($child);

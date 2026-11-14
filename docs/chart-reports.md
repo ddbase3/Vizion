@@ -177,7 +177,7 @@ Chart reports intentionally do not render a free-text search bar. Filters are ex
 Chart types are discoverable components implementing:
 
 ```text
-Vizion\Api\IReportChartRenderer
+Base3\Vizion\Api\IReportChartRenderer
 ```
 
 Implementations must use a full lowercase class-style `getName()` value, for example:

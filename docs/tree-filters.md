@@ -139,7 +139,7 @@ Vizion selects distinct membership values inside the selected subtree and filter
 
 ## Security
 
-Tree loading, selected-node validation and report filtering all use `ResourceFoundation\Api\IQueryService`. Host or project query-security constraints therefore apply to the hierarchy queries and nested subqueries through the same structured query path as the report itself.
+Tree loading, selected-node validation and report filtering all use `Base3\ResourceFoundation\Api\IQueryService`. Host or project query-security constraints therefore apply to the hierarchy queries and nested subqueries through the same structured query path as the report itself.
 
 An unavailable selected node is rejected. It is not silently converted into an unfiltered report.
 

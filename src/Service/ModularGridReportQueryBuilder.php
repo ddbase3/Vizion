@@ -14,10 +14,10 @@
  * https://github.com/ddbase3/Vizion
  **********************************************************************/
 
-namespace Vizion\Service;
+namespace Base3\Vizion\Service;
 
-use Vizion\Api\IReportFilterService;
-use Vizion\Api\IReportTreeFilterService;
+use Base3\Vizion\Api\IReportFilterService;
+use Base3\Vizion\Api\IReportTreeFilterService;
 
 /**
  * Builds the structured queries used by ModularGrid reports.

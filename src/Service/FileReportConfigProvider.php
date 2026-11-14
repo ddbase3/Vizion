@@ -16,10 +16,10 @@
  * https://github.com/ddbase3/Vizion
  **********************************************************************/
 
-namespace Vizion\Service;
+namespace Base3\Vizion\Service;
 
-use Base3\Api\IModuleRegistry;
-use Vizion\Api\IReportConfigProvider;
+use Base3\CoreFoundation\Api\IModuleRegistry;
+use Base3\Vizion\Api\IReportConfigProvider;
 
 class FileReportConfigProvider implements IReportConfigProvider {
 

@@ -16,9 +16,9 @@
  * https://github.com/ddbase3/Vizion
  **********************************************************************/
 
-namespace Vizion\Api;
+namespace Base3\Vizion\Api;
 
-use Base3\Api\IDisplay;
+use Base3\CoreFoundation\Api\IDisplay;
 
 interface IReportDisplay extends IDisplay {
 }

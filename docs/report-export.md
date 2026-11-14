@@ -13,13 +13,13 @@ Vizion report definition
 ModularGridReportQueryBuilder
         |
         v
-ResourceFoundation\Api\IQueryService
+Base3\ResourceFoundation\Api\IQueryService
         |
         v
-ResourceFoundation\Dto\QueryResult
+Base3\ResourceFoundation\Dto\QueryResult
         |
         v
-ResourceFoundation\Api\IReportExporter
+Base3\ResourceFoundation\Api\IReportExporter
         |
         v
 CSV / Excel HTML / XLSX / JSON / HTML UI exporters

@@ -1,14 +1,29 @@
 <?php declare(strict_types=1);
 
-namespace Vizion\Test\ReportDisplay;
+/***********************************************************************
+ * This file is part of Vizion for BASE3 Framework.
+ *
+ * Vizion provides reporting and data visualization for BASE3 projects.
+ * It supports grids, interactive tables, charts and data exporters.
+ * Visual components consume structured reporting and query results.
+ *
+ * Developed by Daniel Dahme
+ * Licensed under GPL-3.0
+ * https://www.gnu.org/licenses/gpl-3.0.en.html
+ *
+ * https://base3.de/v/vizion
+ * https://github.com/ddbase3/Vizion
+ **********************************************************************/
+
+namespace Base3\Vizion\Test\ReportDisplay;
 
 use PHPUnit\Framework\TestCase;
-use Vizion\ReportDisplay\GeneralReportDisplay;
-use Base3\Api\IRequest;
-use Base3\Api\IDisplay;
-use Base3\Translation\Api\ITranslation;
+use Base3\Vizion\ReportDisplay\GeneralReportDisplay;
+use Base3\CoreFoundation\Api\IRequest;
+use Base3\CoreFoundation\Api\IDisplay;
+use Base3\CoreFoundation\Translation\Api\ITranslation;
 use Base3\Test\Core\ClassMapStub;
-use Vizion\Api\IReportConfigProvider;
+use Base3\Vizion\Api\IReportConfigProvider;
 
 final class GeneralReportDisplayTest extends TestCase {
 

@@ -16,7 +16,7 @@
  * https://github.com/ddbase3/Vizion
  **********************************************************************/
 
-namespace Vizion\Api;
+namespace Base3\Vizion\Api;
 
 interface IReportConfigProvider {
 

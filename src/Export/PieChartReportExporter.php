@@ -14,9 +14,9 @@
  * https://github.com/ddbase3/Vizion
  **********************************************************************/
 
-namespace Vizion\Export;
+namespace Base3\Vizion\Export;
 
-use Base3\Api\IAssetResolver;
+use Base3\CoreFoundation\Api\IAssetResolver;
 
 final class PieChartReportExporter extends AbstractReportExporter {
 

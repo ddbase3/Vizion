@@ -16,9 +16,9 @@
  * https://github.com/ddbase3/Vizion
  **********************************************************************/
 
-namespace Vizion\Service;
+namespace Base3\Vizion\Service;
 
-use ResourceFoundation\Api\IReportConfigDefinitionProvider;
+use Base3\ResourceFoundation\Api\IReportConfigDefinitionProvider;
 
 final class FileReportConfigDefinitionProvider implements IReportConfigDefinitionProvider {
 

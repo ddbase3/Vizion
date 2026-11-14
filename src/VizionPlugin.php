@@ -16,32 +16,32 @@
  * https://github.com/ddbase3/Vizion
  **********************************************************************/
 
-namespace Vizion;
+namespace Base3\Vizion;
 
-use Base3\Api\ICheck;
-use Base3\Api\IClassMap;
-use Base3\Api\IContainer;
-use Base3\Api\IPlugin;
-use Base3\Api\IRequest;
-use Base3\Translation\Api\ITranslation;
-use Base3\Logger\Api\ILogger;
-use ResourceFoundation\Api\IQueryService;
-use ResourceFoundation\Api\IReportingScopeRegistry;
-use Vizion\Api\IReportConfigProvider;
-use Vizion\Api\IReportDisplay;
-use Vizion\Service\CompositeReportConfigProvider;
-use Vizion\ReportDisplay\GeneralReportDisplay;
-use Vizion\Api\IReportFilterService;
-use Vizion\Api\IReportDataService;
-use Vizion\Api\IReportTreeFilterService;
-use Vizion\Api\IReportCellRendererService;
-use Vizion\Api\IReportChartService;
-use Vizion\Filter\ReportFilterService;
-use Vizion\TreeFilter\ReportTreeFilterService;
-use Vizion\Renderer\ReportCellRendererService;
-use Vizion\Chart\ReportChartService;
-use Vizion\Service\ModularGridReportQueryBuilder;
-use Vizion\Service\ReportDataService;
+use Base3\CoreFoundation\Api\ICheck;
+use Base3\CoreFoundation\Api\IClassMap;
+use Base3\CoreFoundation\Api\IContainer;
+use Base3\CoreFoundation\Api\IPlugin;
+use Base3\CoreFoundation\Api\IRequest;
+use Base3\CoreFoundation\Translation\Api\ITranslation;
+use Base3\CoreFoundation\Logger\Api\ILogger;
+use Base3\ResourceFoundation\Api\IQueryService;
+use Base3\ResourceFoundation\Api\IReportingScopeRegistry;
+use Base3\Vizion\Api\IReportConfigProvider;
+use Base3\Vizion\Api\IReportDisplay;
+use Base3\Vizion\Service\CompositeReportConfigProvider;
+use Base3\Vizion\ReportDisplay\GeneralReportDisplay;
+use Base3\Vizion\Api\IReportFilterService;
+use Base3\Vizion\Api\IReportDataService;
+use Base3\Vizion\Api\IReportTreeFilterService;
+use Base3\Vizion\Api\IReportCellRendererService;
+use Base3\Vizion\Api\IReportChartService;
+use Base3\Vizion\Filter\ReportFilterService;
+use Base3\Vizion\TreeFilter\ReportTreeFilterService;
+use Base3\Vizion\Renderer\ReportCellRendererService;
+use Base3\Vizion\Chart\ReportChartService;
+use Base3\Vizion\Service\ModularGridReportQueryBuilder;
+use Base3\Vizion\Service\ReportDataService;
 
 class VizionPlugin implements IPlugin, ICheck {
 

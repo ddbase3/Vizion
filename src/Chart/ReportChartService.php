@@ -1,12 +1,27 @@
 <?php declare(strict_types=1);
 
-namespace Vizion\Chart;
+/***********************************************************************
+ * This file is part of Vizion for BASE3 Framework.
+ *
+ * Vizion provides reporting and data visualization for BASE3 projects.
+ * It supports grids, interactive tables, charts and data exporters.
+ * Visual components consume structured reporting and query results.
+ *
+ * Developed by Daniel Dahme
+ * Licensed under GPL-3.0
+ * https://www.gnu.org/licenses/gpl-3.0.en.html
+ *
+ * https://base3.de/v/vizion
+ * https://github.com/ddbase3/Vizion
+ **********************************************************************/
 
-use Base3\Api\IClassMap;
-use ResourceFoundation\Dto\QueryResult;
-use Vizion\Api\IReportCellRendererService;
-use Vizion\Api\IReportChartService;
-use Vizion\Api\IReportFilterService;
+namespace Base3\Vizion\Chart;
+
+use Base3\CoreFoundation\Api\IClassMap;
+use Base3\ResourceFoundation\Dto\QueryResult;
+use Base3\Vizion\Api\IReportCellRendererService;
+use Base3\Vizion\Api\IReportChartService;
+use Base3\Vizion\Api\IReportFilterService;
 
 final class ReportChartService implements IReportChartService {
 

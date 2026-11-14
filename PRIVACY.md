@@ -32,7 +32,7 @@ Vizion does not limit report content to anonymous or aggregate information.
 
 ## Data-source and authorization boundary
 
-Vizion executes report and hierarchy queries through `ResourceFoundation\Api\IQueryService`.
+Vizion executes report and hierarchy queries through `Base3\ResourceFoundation\Api\IQueryService`.
 
 The query-service contract is therefore the main data-access boundary. Vizion does not implement a second independent row-level authorization system around query results.
 

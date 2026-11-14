@@ -20,7 +20,7 @@ Examples:
 PHP implementations implement:
 
 ```php
-Vizion\Api\IReportValueFormatter
+Base3\Vizion\Api\IReportValueFormatter
 ```
 
 The technical `getName()` value is the lowercase class name, for example `emailvalueformatter`. The vdef-facing name is returned by `getFormatterType()`.
@@ -38,7 +38,7 @@ Examples:
 PHP implementations implement:
 
 ```php
-Vizion\Api\IReportValueRenderer
+Base3\Vizion\Api\IReportValueRenderer
 ```
 
 Value renderers may return required browser asset paths. The display resolves and imports those modules before ModularGrid is initialized, so project plugins can add renderers without changing Vizion JavaScript.
@@ -83,7 +83,7 @@ A column renderer controls the complete cell area for one column. It may combine
 PHP implementations implement:
 
 ```php
-Vizion\Api\IReportColumnRenderer
+Base3\Vizion\Api\IReportColumnRenderer
 ```
 
 Vdef example for future use:
@@ -108,7 +108,7 @@ A row renderer is reserved for whole-row presentation concerns such as row class
 PHP implementations implement:
 
 ```php
-Vizion\Api\IReportRowRenderer
+Base3\Vizion\Api\IReportRowRenderer
 ```
 
 The interface is prepared so report displays can opt into row-level rendering without mixing row behavior into value or column renderers.

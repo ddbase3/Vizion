@@ -16,17 +16,17 @@
  * https://github.com/ddbase3/Vizion
  **********************************************************************/
 
-namespace Vizion\Display;
+namespace Base3\Vizion\Display;
 
-use Base3\Usermanager\Permission;
-use Base3\Authorization\Dto\AuthorizationRequest;
-use Base3\Authorization\Api\IAuthorizationService;
-use Base3\Api\IAssetResolver;
-use Base3\Api\IDisplay;
-use Base3\Api\IMvcView;
-use ResourceFoundation\Api\IQuerySchemaProvider;
-use ResourceFoundation\Api\IReportingScopeRegistry;
-use ResourceFoundation\Api\IScopedQuerySchemaProvider;
+use Base3\CoreFoundation\Usermanager\Permission;
+use Base3\CoreFoundation\Authorization\Dto\AuthorizationRequest;
+use Base3\CoreFoundation\Authorization\Api\IAuthorizationService;
+use Base3\CoreFoundation\Api\IAssetResolver;
+use Base3\CoreFoundation\Api\IDisplay;
+use Base3\CoreFoundation\Api\IMvcView;
+use Base3\ResourceFoundation\Api\IQuerySchemaProvider;
+use Base3\ResourceFoundation\Api\IReportingScopeRegistry;
+use Base3\ResourceFoundation\Api\IScopedQuerySchemaProvider;
 
 class DataHawkSchemaDisplay implements IDisplay {
 
@@ -59,7 +59,7 @@ class DataHawkSchemaDisplay implements IDisplay {
 	public function getOutput(string $out = 'html', bool $final = false): string {
 		if (!$this->settingsAuthorization->decide(new AuthorizationRequest(
 			$this->settingsAuthorization->getDefaultAuthority(),
-			Permission::for('feature', \Vizion\SettingsTab\DatahawkschemaSettingsTab::getName())
+			Permission::for('feature', \Base3\Vizion\SettingsTab\DatahawkschemaSettingsTab::getName())
 		))->isAllowed()) {
 			http_response_code(403);
 			return '';

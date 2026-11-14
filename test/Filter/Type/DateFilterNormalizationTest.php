@@ -1,12 +1,27 @@
 <?php declare(strict_types=1);
 
-namespace Vizion\Test\Filter\Type;
+/***********************************************************************
+ * This file is part of Vizion for BASE3 Framework.
+ *
+ * Vizion provides reporting and data visualization for BASE3 projects.
+ * It supports grids, interactive tables, charts and data exporters.
+ * Visual components consume structured reporting and query results.
+ *
+ * Developed by Daniel Dahme
+ * Licensed under GPL-3.0
+ * https://www.gnu.org/licenses/gpl-3.0.en.html
+ *
+ * https://base3.de/v/vizion
+ * https://github.com/ddbase3/Vizion
+ **********************************************************************/
+
+namespace Base3\Vizion\Test\Filter\Type;
 
 use PHPUnit\Framework\TestCase;
-use Vizion\Filter\Type\DateFilterType;
-use Vizion\Filter\Type\DateRangeFilterType;
-use Vizion\Filter\Type\DateTimeFilterType;
-use Vizion\Filter\Type\DateTimeRangeFilterType;
+use Base3\Vizion\Filter\Type\DateFilterType;
+use Base3\Vizion\Filter\Type\DateRangeFilterType;
+use Base3\Vizion\Filter\Type\DateTimeFilterType;
+use Base3\Vizion\Filter\Type\DateTimeRangeFilterType;
 
 final class DateFilterNormalizationTest extends TestCase {
 

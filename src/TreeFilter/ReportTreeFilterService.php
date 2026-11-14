@@ -14,11 +14,11 @@
  * https://github.com/ddbase3/Vizion
  **********************************************************************/
 
-namespace Vizion\TreeFilter;
+namespace Base3\Vizion\TreeFilter;
 
-use ResourceFoundation\Api\IQueryService;
+use Base3\ResourceFoundation\Api\IQueryService;
 use RuntimeException;
-use Vizion\Api\IReportTreeFilterService;
+use Base3\Vizion\Api\IReportTreeFilterService;
 
 final class ReportTreeFilterService implements IReportTreeFilterService {
 

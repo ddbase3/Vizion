@@ -1,16 +1,31 @@
 <?php declare(strict_types=1);
 
-namespace Vizion\Test\ReportDisplay;
+/***********************************************************************
+ * This file is part of Vizion for BASE3 Framework.
+ *
+ * Vizion provides reporting and data visualization for BASE3 projects.
+ * It supports grids, interactive tables, charts and data exporters.
+ * Visual components consume structured reporting and query results.
+ *
+ * Developed by Daniel Dahme
+ * Licensed under GPL-3.0
+ * https://www.gnu.org/licenses/gpl-3.0.en.html
+ *
+ * https://base3.de/v/vizion
+ * https://github.com/ddbase3/Vizion
+ **********************************************************************/
+
+namespace Base3\Vizion\Test\ReportDisplay;
 
 use PHPUnit\Framework\TestCase;
-use Vizion\ReportDisplay\DataTableReportDisplay;
-use Base3\Api\IMvcView;
-use Base3\Api\IAssetResolver;
-use Base3\LinkTarget\Api\ILinkTargetService;
-use Base3\Configuration\Api\IConfiguration;
-use Base3\Logger\Api\ILogger;
-use ResourceFoundation\Api\IQueryService;
-use ResourceFoundation\Dto\QueryResult;
+use Base3\Vizion\ReportDisplay\DataTableReportDisplay;
+use Base3\CoreFoundation\Api\IMvcView;
+use Base3\CoreFoundation\Api\IAssetResolver;
+use Base3\CoreFoundation\LinkTarget\Api\ILinkTargetService;
+use Base3\CoreFoundation\Configuration\Api\IConfiguration;
+use Base3\CoreFoundation\Logger\Api\ILogger;
+use Base3\ResourceFoundation\Api\IQueryService;
+use Base3\ResourceFoundation\Dto\QueryResult;
 
 final class DataTableReportDisplayTest extends TestCase {
 

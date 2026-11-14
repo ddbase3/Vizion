@@ -14,7 +14,7 @@
  * https://github.com/ddbase3/Vizion
  **********************************************************************/
 
-namespace Vizion\Export;
+namespace Base3\Vizion\Export;
 
 final class JsonReportExporter extends AbstractReportExporter {
 

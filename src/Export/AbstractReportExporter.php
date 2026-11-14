@@ -14,10 +14,10 @@
  * https://github.com/ddbase3/Vizion
  **********************************************************************/
 
-namespace Vizion\Export;
+namespace Base3\Vizion\Export;
 
-use ResourceFoundation\Api\IReportExporter;
-use ResourceFoundation\Dto\QueryResult;
+use Base3\ResourceFoundation\Api\IReportExporter;
+use Base3\ResourceFoundation\Dto\QueryResult;
 
 abstract class AbstractReportExporter implements IReportExporter {
 

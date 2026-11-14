@@ -14,18 +14,18 @@
  * https://github.com/ddbase3/Vizion
  **********************************************************************/
 
-namespace Vizion\Service;
+namespace Base3\Vizion\Service;
 
-use Base3\Api\IClassMap;
-use Base3\Logger\Api\ILogger;
-use ResourceFoundation\Api\IQueryService;
-use ResourceFoundation\Api\IReportConfigDefinitionProvider;
-use ResourceFoundation\Api\IReportingScopeRegistry;
+use Base3\CoreFoundation\Api\IClassMap;
+use Base3\CoreFoundation\Logger\Api\ILogger;
+use Base3\ResourceFoundation\Api\IQueryService;
+use Base3\ResourceFoundation\Api\IReportConfigDefinitionProvider;
+use Base3\ResourceFoundation\Api\IReportingScopeRegistry;
 use RuntimeException;
-use Vizion\Api\IReportConfigProvider;
-use Vizion\Api\IReportDataService;
-use Vizion\Api\IReportFilterService;
-use Vizion\Api\IReportTreeFilterService;
+use Base3\Vizion\Api\IReportConfigProvider;
+use Base3\Vizion\Api\IReportDataService;
+use Base3\Vizion\Api\IReportFilterService;
+use Base3\Vizion\Api\IReportTreeFilterService;
 
 /**
  * Executes curated Vizion reports without going through a display or HTTP

@@ -1,18 +1,33 @@
 <?php declare(strict_types=1);
 
-namespace Vizion\Test;
+/***********************************************************************
+ * This file is part of Vizion for BASE3 Framework.
+ *
+ * Vizion provides reporting and data visualization for BASE3 projects.
+ * It supports grids, interactive tables, charts and data exporters.
+ * Visual components consume structured reporting and query results.
+ *
+ * Developed by Daniel Dahme
+ * Licensed under GPL-3.0
+ * https://www.gnu.org/licenses/gpl-3.0.en.html
+ *
+ * https://base3.de/v/vizion
+ * https://github.com/ddbase3/Vizion
+ **********************************************************************/
+
+namespace Base3\Vizion\Test;
 
 use PHPUnit\Framework\TestCase;
-use Vizion\VizionPlugin;
-use Base3\Api\IContainer;
-use Vizion\Api\IReportConfigProvider;
-use Vizion\Api\IReportDisplay;
-use Vizion\Api\IReportFilterService;
-use Vizion\Api\IReportDataService;
-use Vizion\Api\IReportTreeFilterService;
-use Vizion\Api\IReportCellRendererService;
-use Vizion\Api\IReportChartService;
-use Vizion\Service\ModularGridReportQueryBuilder;
+use Base3\Vizion\VizionPlugin;
+use Base3\CoreFoundation\Api\IContainer;
+use Base3\Vizion\Api\IReportConfigProvider;
+use Base3\Vizion\Api\IReportDisplay;
+use Base3\Vizion\Api\IReportFilterService;
+use Base3\Vizion\Api\IReportDataService;
+use Base3\Vizion\Api\IReportTreeFilterService;
+use Base3\Vizion\Api\IReportCellRendererService;
+use Base3\Vizion\Api\IReportChartService;
+use Base3\Vizion\Service\ModularGridReportQueryBuilder;
 
 final class VizionPluginTest extends TestCase {
 
