@@ -2,7 +2,7 @@
 	"manifestVersion": 1,
 	"name": "Vizion",
 	"namespace": "Base3\\Vizion",
-	"version": "4.7.0",
+	"version": "5.0.0",
 	"description": "Reporting and data visualization for BASE3 with interactive tables, grids, charts and exporters.",
 	"license": "GPL-3.0-or-later",
 	"maintainers": [
@@ -14,9 +14,9 @@
 	],
 	"repository": "https://github.com/ddbase3/Vizion",
 	"dependencies": {
-		"CoreFoundation": ">=4.10.0",
-		"ClientStack": ">=4.23.0",
-		"ResourceFoundation": ">=4.5.0",
-		"UiFoundation": ">=4.3.0"
+		"CoreFoundation": ">=5.0.0",
+		"ClientStack": ">=5.0.0",
+		"ResourceFoundation": ">=5.0.0",
+		"UiFoundation": ">=5.0.0"
 	}
 }
